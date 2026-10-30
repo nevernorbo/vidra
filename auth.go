@@ -5,15 +5,18 @@ import (
 	"database/sql"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
-	ID   int64
-	Name string
+	ID         int64
+	Name, Role string
 }
+
+func (u *User) IsAdmin() bool { return u.Role == "admin" }
 
 type ctxKey struct{}
 
@@ -29,8 +32,8 @@ func sessions(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie("sid"); err == nil {
 			u := &User{}
-			err := db.QueryRow(`SELECT u.id, u.username FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>?`,
-				c.Value, now()).Scan(&u.ID, &u.Name)
+			err := db.QueryRow(`SELECT u.id, u.username, u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>?`,
+				c.Value, now()).Scan(&u.ID, &u.Name, &u.Role)
 			if err == nil {
 				r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, u))
 			}
@@ -54,12 +57,26 @@ func authed(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func createUser(name, password string) (int64, error) {
+func adminOnly(h http.HandlerFunc) http.HandlerFunc {
+	return authed(func(w http.ResponseWriter, r *http.Request) {
+		if !userFrom(r).IsAdmin() {
+			if r.Method == http.MethodGet {
+				http.Redirect(w, r, "/upload", http.StatusSeeOther)
+				return
+			}
+			http.Error(w, "Only admins can do that.", http.StatusForbidden)
+			return
+		}
+		h(w, r)
+	})
+}
+
+func createUser(name, password, role string) (int64, error) {
 	hash, err := hashPassword(password)
 	if err != nil {
 		return 0, err
 	}
-	res, err := db.Exec(`INSERT INTO users(username, pass_hash, created_at) VALUES(?,?,?)`, name, hash, now())
+	res, err := db.Exec(`INSERT INTO users(username, pass_hash, role, created_at) VALUES(?,?,?,?)`, name, hash, role, now())
 	if err != nil {
 		return 0, err
 	}
@@ -135,7 +152,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		fail(http.StatusBadRequest, "Password must be 8–72 characters.")
 		return
 	}
-	id, err := createUser(name, pass)
+	id, err := createUser(name, pass, "user")
 	if err != nil {
 		fail(http.StatusConflict, "That username is taken.")
 		return
@@ -175,13 +192,57 @@ func invites(uid int64) (out []Invite) {
 	return
 }
 
+type Member struct {
+	ID             int64
+	Name, Role, By string
+	JoinedAt       int64
+}
+
+// members lists everyone who signed up through an invite, newest first.
+func members() (out []Member) {
+	rows, err := db.Query(`SELECT u.id, u.username, u.role, u.created_at, COALESCE(b.username, '') FROM users u
+		JOIN invites i ON i.used_by=u.id LEFT JOIN users b ON b.id=i.created_by ORDER BY u.created_at DESC`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var m Member
+		rows.Scan(&m.ID, &m.Name, &m.Role, &m.JoinedAt, &m.By)
+		out = append(out, m)
+	}
+	return
+}
+
 func settings(w http.ResponseWriter, r *http.Request) {
-	render(w, r, "settings", map[string]any{"Title": "Settings", "Invites": invites(userFrom(r).ID)})
+	render(w, r, "settings", map[string]any{"Title": "Settings", "Invites": invites(userFrom(r).ID), "Members": members()})
+}
+
+func setRole(w http.ResponseWriter, r *http.Request) {
+	me := userFrom(r)
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	role := r.FormValue("role")
+	switch {
+	case id == me.ID:
+		http.Error(w, "You can’t change your own role.", http.StatusForbidden)
+		return
+	case role != "admin" && role != "user":
+		http.Error(w, "Unknown role.", http.StatusBadRequest)
+		return
+	}
+	var name string
+	if db.QueryRow(`UPDATE users SET role=? WHERE id=? RETURNING username`, role, id).Scan(&name) != nil {
+		http.NotFound(w, r)
+		return
+	}
+	notify(w, map[string]string{"admin": name + " is now an admin", "user": name + " is no longer an admin"}[role])
+	fragment(w, "members", map[string]any{"Members": members(), "User": me})
 }
 
 func newInvite(w http.ResponseWriter, r *http.Request) {
 	u := userFrom(r)
 	db.Exec(`INSERT INTO invites(token, created_by, created_at, expires_at) VALUES(?,?,?,?)`,
 		randHex(16), u.ID, now(), now()+int64(inviteTTL.Seconds()))
+	notify(w, "Invite link created")
 	fragment(w, "invites", map[string]any{"Invites": invites(u.ID), "Base": baseURL(r)})
 }

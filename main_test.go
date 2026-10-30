@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -70,5 +71,98 @@ func TestInviteAndQuota(t *testing.T) {
 	}
 	if code, _ := post(newClient(), "/upload/init", opts); code != 401 {
 		t.Fatalf("anonymous init = %d, want 401", code)
+	}
+}
+
+func TestRename(t *testing.T) {
+	t.Setenv("ADMIN_USER", "admin")
+	t.Setenv("ADMIN_PASSWORD", "password123")
+	srv := httptest.NewServer(setup(t.TempDir()))
+	defer srv.Close()
+	db.Exec(`INSERT INTO videos(id, user_id, title, file_size, visibility, status, quality, created_at) VALUES('v1', (SELECT id FROM users WHERE username='admin'), 'old', 0, 'public', 'ready', 'balanced', 0)`)
+
+	jar, _ := cookiejar.New(nil)
+	c := &http.Client{Jar: jar}
+	rename := func(c *http.Client, title string) int {
+		r, err := c.PostForm(srv.URL+"/videos/v1/title", url.Values{"title": {title}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Body.Close()
+		return r.StatusCode
+	}
+	if code := rename(&http.Client{}, "hijack"); code != 401 {
+		t.Fatalf("anonymous rename = %d, want 401", code)
+	}
+	c.PostForm(srv.URL+"/login", url.Values{"username": {"admin"}, "password": {"password123"}})
+	if code := rename(c, "   "); code != 400 {
+		t.Fatalf("blank rename = %d, want 400", code)
+	}
+	if code := rename(c, "  New name "); code != 200 {
+		t.Fatalf("rename = %d", code)
+	}
+	if v, _ := getVideo("v1"); v.Title != "New name" {
+		t.Fatalf("title = %q", v.Title)
+	}
+}
+
+func TestRoles(t *testing.T) {
+	t.Setenv("ADMIN_USER", "admin")
+	t.Setenv("ADMIN_PASSWORD", "password123")
+	srv := httptest.NewServer(setup(t.TempDir()))
+	defer srv.Close()
+
+	client := func() *http.Client {
+		jar, _ := cookiejar.New(nil)
+		return &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	}
+	do := func(c *http.Client, method, path string, v url.Values) (int, string) {
+		req, _ := http.NewRequest(method, srv.URL+path, strings.NewReader(v.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r, err := c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Body.Close()
+		b := new(strings.Builder)
+		io.Copy(b, r.Body)
+		return r.StatusCode, b.String()
+	}
+	userID := func(name string) string {
+		var id string
+		db.QueryRow(`SELECT id FROM users WHERE username=?`, name).Scan(&id)
+		return id
+	}
+
+	admin := client()
+	do(admin, "POST", "/login", url.Values{"username": {"admin"}, "password": {"password123"}})
+	_, html := do(admin, "POST", "/settings/invite", nil)
+	tok := regexp.MustCompile(`token=([0-9a-f]{32})`).FindStringSubmatch(html)[1]
+	bob := client()
+	do(bob, "POST", "/register", url.Values{"token": {tok}, "username": {"bob"}, "password": {"password123"}})
+
+	if code, _ := do(bob, "GET", "/settings", nil); code != 303 {
+		t.Fatalf("user GET /settings = %d, want redirect", code)
+	}
+	if code, _ := do(bob, "POST", "/settings/invite", nil); code != 403 {
+		t.Fatalf("user invite = %d, want 403", code)
+	}
+	if code, _ := do(bob, "POST", "/settings/users/"+userID("bob")+"/role", url.Values{"role": {"admin"}}); code != 403 {
+		t.Fatalf("user promoting self = %d, want 403", code)
+	}
+	if code, page := do(admin, "GET", "/settings", nil); code != 200 || !strings.Contains(page, "bob") {
+		t.Fatalf("admin GET /settings = %d, lists bob: %v", code, strings.Contains(page, "bob"))
+	}
+	if code, _ := do(admin, "POST", "/settings/users/"+userID("admin")+"/role", url.Values{"role": {"user"}}); code != 403 {
+		t.Fatalf("admin demoting self = %d, want 403", code)
+	}
+	if code, _ := do(admin, "POST", "/settings/users/"+userID("bob")+"/role", url.Values{"role": {"owner"}}); code != 400 {
+		t.Fatalf("unknown role = %d, want 400", code)
+	}
+	if code, _ := do(admin, "POST", "/settings/users/"+userID("bob")+"/role", url.Values{"role": {"admin"}}); code != 200 {
+		t.Fatalf("promote bob = %d", code)
+	}
+	if code, _ := do(bob, "GET", "/settings", nil); code != 200 {
+		t.Fatalf("promoted bob GET /settings = %d, want 200", code)
 	}
 }

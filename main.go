@@ -56,7 +56,9 @@ var funcs = template.FuncMap{
 }
 
 const schema = `
-CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, pass_hash TEXT NOT NULL, created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, pass_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user', created_at INTEGER NOT NULL); -- role: 'user' or 'admin'
+
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS invites(token TEXT PRIMARY KEY, created_by INTEGER NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, used_by INTEGER);
 CREATE TABLE IF NOT EXISTS videos(id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, title TEXT NOT NULL, file_size INTEGER NOT NULL,
@@ -125,10 +127,12 @@ func setup(dir string) http.Handler {
 	mux.HandleFunc("GET /videos", authed(library))
 	mux.HandleFunc("GET /videos/{id}/card", authed(card))
 	mux.HandleFunc("POST /videos/{id}/visibility", authed(toggleVisibility))
+	mux.HandleFunc("POST /videos/{id}/title", authed(renameVideo))
 	mux.HandleFunc("DELETE /videos/{id}", authed(deleteVideoHandler))
 
-	mux.HandleFunc("GET /settings", authed(settings))
-	mux.HandleFunc("POST /settings/invite", authed(newInvite))
+	mux.HandleFunc("GET /settings", adminOnly(settings))
+	mux.HandleFunc("POST /settings/invite", adminOnly(newInvite))
+	mux.HandleFunc("POST /settings/users/{id}/role", adminOnly(setRole))
 
 	mux.HandleFunc("GET /v/{id}", watch)
 	mux.HandleFunc("GET /v/{id}/video.mp4", serveFile("videos", ".mp4", "video/mp4"))
@@ -147,7 +151,7 @@ func seedAdmin() {
 	if u == "" || p == "" {
 		log.Fatal("no users yet: set ADMIN_USER and ADMIN_PASSWORD to create the first account")
 	}
-	_, err := createUser(u, p)
+	_, err := createUser(u, p, "admin")
 	must(err)
 	log.Println("created admin user", u)
 }
@@ -181,6 +185,12 @@ func fragment(w http.ResponseWriter, name string, data any) {
 	if err := pages["videos"].ExecuteTemplate(w, name, data); err != nil {
 		log.Println("fragment", name, err)
 	}
+}
+
+// notify makes htmx raise a "toast" event, which the layout shows as a snackbar.
+func notify(w http.ResponseWriter, msg string) {
+	b, _ := json.Marshal(map[string]string{"toast": msg})
+	w.Header().Set("HX-Trigger", string(b))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

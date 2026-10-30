@@ -8,5 +8,9 @@
     <button class="btn btn-primary" hx-post="/settings/invite" hx-target="#invites" hx-swap="innerHTML">New invite link</button>
   </div>
   <div id="invites" class="mt-8">{{template "invites" .}}</div>
+
+  <h2 class="mt-16 font-display text-2xl font-bold tracking-tight">People</h2>
+  <p class="page-sub">Everyone who joined with an invite. Admins can send invites and change roles.</p>
+  <div class="mt-4">{{template "members" .}}</div>
 </div>
 {{end}}

@@ -27,18 +27,23 @@
     .btn-primary { @apply bg-amber font-semibold text-ink ring-0 hover:bg-amber-hi; }
     .btn-lg { @apply h-12 w-full text-[15px]; }
     .icon-btn { @apply grid h-8 w-8 place-items-center rounded-full text-muted transition hover:bg-line hover:text-fg; }
+    .ico { @apply h-4 w-4 shrink-0 fill-none stroke-current; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+    .menu-item { @apply flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition hover:bg-line; }
+    .badge { @apply rounded-full px-2.5 py-0.5 text-xs font-semibold; }
     .icon-btn svg { @apply h-[18px] w-[18px] fill-none stroke-current; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
     /* floating label: the input needs class "peer" and placeholder=" ", the label must follow it */
     .field { @apply relative; }
     .input { @apply h-14 w-full min-w-0 appearance-none rounded-xl border-0 bg-panel px-4 pb-1.5 pt-6 text-base text-fg ring-1 ring-inset ring-line transition placeholder:text-transparent autofill:shadow-[inset_0_0_0_1000px_#1F1A26] autofill:[-webkit-text-fill-color:#EDE7F2] focus:outline-none focus:ring-2 focus:ring-amber sm:text-[15px]; }
-    select.input { @apply cursor-pointer bg-[length:1.1rem] bg-[right_0.75rem_center] bg-no-repeat pr-9;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23968CA3'%3E%3Cpath d='M5.3 7.3a1 1 0 011.4 0L10 10.6l3.3-3.3a1 1 0 111.4 1.4l-4 4a1 1 0 01-1.4 0l-4-4a1 1 0 010-1.4z'/%3E%3C/svg%3E"); }
+    .select-sm { @apply h-9 cursor-pointer appearance-none rounded-full border-0 bg-panel bg-[length:1rem] bg-[right_0.6rem_center] bg-no-repeat py-0 pl-3.5 pr-8 text-sm text-fg ring-1 ring-inset ring-line transition hover:bg-line focus:outline-none focus:ring-2 focus:ring-amber; }
+    select.input { @apply cursor-pointer bg-[length:1.1rem] bg-[right_0.75rem_center] bg-no-repeat pr-9; }
+    select.input, .select-sm { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23968CA3'%3E%3Cpath d='M5.3 7.3a1 1 0 011.4 0L10 10.6l3.3-3.3a1 1 0 111.4 1.4l-4 4a1 1 0 01-1.4 0l-4-4a1 1 0 010-1.4z'/%3E%3C/svg%3E"); }
     .float-label { @apply pointer-events-none absolute left-4 top-2 origin-left text-xs text-muted transition-all duration-150 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-amber motion-reduce:transition-none; }
     .alert { @apply rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger ring-1 ring-inset ring-danger/25; }
-    .nav-link { @apply rounded-full px-3 py-1.5 text-muted transition hover:text-fg; }
+    .nav-link { @apply rounded-full px-2.5 py-1.5 sm:px-3 text-muted transition hover:text-fg; }
     .nav-link[aria-current] { @apply bg-panel text-fg ring-1 ring-inset ring-line; }
     .page-title { @apply font-display text-4xl font-extrabold tracking-[-0.03em] text-fg sm:text-5xl; }
     .page-sub { @apply mt-2 text-[15px] text-muted; }
+    .btn.htmx-request, .icon-btn.htmx-request { @apply pointer-events-none opacity-50; }
   }
   /* film sprocket holes along the top and bottom edge of the drop zone */
   .filmstrip { background:
@@ -49,28 +54,29 @@
 </head>
 <body class="min-h-screen bg-ink font-sans text-fg antialiased">
 <header class="sticky top-0 z-10 bg-ink/85 backdrop-blur-md">
-  <nav class="mx-auto flex h-16 max-w-5xl items-center gap-1 px-4 text-sm">
+  <nav class="mx-auto flex h-16 max-w-5xl items-center gap-0.5 px-4 text-sm sm:gap-1">
     <a href="/" class="mr-auto flex items-center gap-2 font-display text-2xl font-extrabold tracking-[-0.04em] text-fg">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-amber"><path d="M7 4.5v15l12.5-7.5z"/></svg>vidra
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-amber"><path d="M7 4.5v15l12.5-7.5z"/></svg><span class="max-[400px]:sr-only">vidra</span>
     </a>
     {{if .User}}
     <a href="/upload" class="nav-link" {{if eq .Title "Upload"}}aria-current="page"{{end}}>Upload</a>
     <a href="/videos" class="nav-link" {{if eq .Title "Library"}}aria-current="page"{{end}}>Library</a>
-    <a href="/settings" class="nav-link" {{if eq .Title "Settings"}}aria-current="page"{{end}}>Invites</a>
-    <form method="post" action="/logout" class="ml-1"><button class="icon-btn" title="Log out ({{.User.Name}})" aria-label="Log out"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l-5-5 5-5M5 12h11"/></svg></button></form>
-    {{else}}
+    {{if .User.IsAdmin}}<a href="/settings" class="nav-link" {{if eq .Title "Settings"}}aria-current="page"{{end}}>Invites</a>{{end}}
+    <form method="post" action="/logout" class="sm:ml-1"><button class="icon-btn" title="Log out ({{.User.Name}})" aria-label="Log out"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l-5-5 5-5M5 12h11"/></svg></button></form>
+    {{else if ne .Title "Log in"}}
     <a href="/login" class="nav-link">Log in</a>
     {{end}}
   </nav>
 </header>
 <main class="mx-auto max-w-5xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-6 sm:pt-10">{{template "content" .}}</main>
 <div class="pointer-events-none fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4">
-  <p id="toast" role="status" aria-live="polite" class="flex translate-y-3 items-center gap-2 rounded-full bg-fg px-4 py-2.5 text-sm font-medium text-ink opacity-0 shadow-lg shadow-black/40 transition duration-200 motion-reduce:transition-none"></p>
+  <p id="toast" role="status" aria-live="polite" class="flex max-w-md translate-y-3 items-center gap-2 rounded-full bg-fg px-4 py-2.5 text-sm font-medium text-ink opacity-0 shadow-lg shadow-black/40 transition duration-200 motion-reduce:transition-none"></p>
 </div>
 <script>
-function toast(msg) {
+function toast(msg, error) {
   const t = document.getElementById('toast')
   t.textContent = msg
+  t.classList.toggle('!bg-danger', !!error)
   t.classList.remove('opacity-0', 'translate-y-3')
   clearTimeout(t.timer)
   t.timer = setTimeout(() => t.classList.add('opacity-0', 'translate-y-3'), 2500)
@@ -80,9 +86,18 @@ async function copyText(t, msg = 'Link copied') {
   try { await navigator.clipboard.writeText(t) } catch {
     const a = document.createElement('textarea'); a.value = t; document.body.append(a); a.select(); ok = document.execCommand('copy'); a.remove()
   }
-  toast(ok ? msg : 'Couldn’t copy the link')
+  toast(ok ? msg : 'Couldn’t copy the link', !ok)
   return ok
 }
+document.body.addEventListener('toast', e => toast(e.detail.value))
+document.body.addEventListener('htmx:responseError', e => {
+  const x = e.detail.xhr
+  toast(x.status === 404 ? 'That video no longer exists. Reload the page.' : x.status < 500 && x.responseText.trim() || 'Something went wrong. Try again.', true)
+})
+document.body.addEventListener('htmx:sendError', () => toast('Can’t reach the server. Check your connection.', true))
+// a page that navigates away can leave a message for the next one in the URL hash
+const carried = { copied: 'Link copied', deleted: 'Video deleted' }[location.hash.slice(1)]
+if (carried) { history.replaceState(null, '', location.pathname + location.search); toast(carried) }
 </script>
 </body>
 </html>{{end}}

@@ -83,7 +83,28 @@ func toggleVisibility(w http.ResponseWriter, r *http.Request) {
 	}
 	v.Visibility = map[string]string{"public": "private", "private": "public"}[v.Visibility]
 	db.Exec(`UPDATE videos SET visibility=? WHERE id=?`, v.Visibility, v.ID)
+	notify(w, map[string]string{"public": "Anyone with the link can watch", "private": "Only you can watch this video now"}[v.Visibility])
 	fragment(w, "card", v)
+}
+
+func renameVideo(w http.ResponseWriter, r *http.Request) {
+	v := getOwned(r)
+	if v == nil {
+		http.NotFound(w, r)
+		return
+	}
+	title := strings.TrimSpace(r.FormValue("title"))
+	if title == "" {
+		http.Error(w, "The title can’t be empty.", http.StatusBadRequest)
+		return
+	}
+	if t := []rune(title); len(t) > 100 { // same cap as titles taken from file names
+		title = string(t[:100])
+	}
+	db.Exec(`UPDATE videos SET title=? WHERE id=?`, title, v.ID)
+	v.Title = title
+	notify(w, "Video renamed")
+	fragment(w, "card", v) // the library swaps the card; the watch page ignores the body
 }
 
 func deleteVideoHandler(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +114,7 @@ func deleteVideoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	deleteVideo(v.ID)
+	notify(w, "Video deleted")
 	u := usage(v.UserID)
 	u.OOB = true
 	fragment(w, "usage", u) // the card itself is swapped for nothing; this refreshes the meter

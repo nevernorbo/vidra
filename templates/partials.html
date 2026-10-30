@@ -1,3 +1,9 @@
+{{define "meta"}}<ul class="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-muted">
+  <li class="flex items-center gap-1.5" title="Uploaded"><svg viewBox="0 0 24 24" class="ico h-[1.15em] w-[1.15em]" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>{{date .CreatedAt}}</li>
+  {{if .Size}}<li class="flex items-center gap-1.5" title="File size"><svg viewBox="0 0 24 24" class="ico h-[1.15em] w-[1.15em]" aria-hidden="true"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></svg>{{bytes .Size}}</li>{{end}}
+  <li class="flex items-center gap-1.5"><svg viewBox="0 0 24 24" class="ico h-[1.15em] w-[1.15em]" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{expires .ExpiresAt}}</li>
+</ul>{{end}}
+
 {{define "usage"}}<div id="usage" {{if .OOB}}hx-swap-oob="true"{{end}} class="flex items-center gap-3 text-xs text-muted">
   <div class="h-1 flex-1 overflow-hidden rounded-full bg-line" role="progressbar" aria-label="Storage used" aria-valuenow="{{.Pct}}" aria-valuemin="0" aria-valuemax="100">
     <div class="h-full rounded-full {{if ge .Pct 90}}bg-danger{{else}}bg-amber{{end}}" style="width: {{.Pct}}%"></div>
@@ -6,7 +12,7 @@
 </div>{{end}}
 
 {{define "card"}}<article id="v-{{.ID}}" class="group min-w-0"
-  {{if eq .Status "processing"}}hx-get="/videos/{{.ID}}/card" hx-trigger="every 3s" hx-swap="outerHTML"{{end}}>
+  {{if eq .Status "processing"}}hx-get="/videos/{{.ID}}/card" hx-trigger="every 3s[!this.querySelector('dialog[open]')]" hx-swap="outerHTML"{{end}}>
   <a href="/v/{{.ID}}" class="relative block aspect-video overflow-hidden rounded-xl bg-panel ring-1 ring-inset ring-line">
     {{if eq .Status "ready"}}<img src="/v/{{.ID}}/thumb.jpg" alt="" loading="lazy" class="h-full w-full object-cover">
     {{else if eq .Status "processing"}}<span class="absolute inset-0 grid place-items-center text-sm text-muted"><span class="flex items-center gap-2"><span class="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-amber"></span>Processing</span></span>
@@ -14,33 +20,73 @@
     {{if ne .Visibility "public"}}<span class="absolute left-2 top-2 rounded-md bg-ink/80 px-1.5 py-0.5 text-[11px] font-medium text-fg backdrop-blur">Private</span>{{end}}
   </a>
   <div class="mt-3 flex items-start gap-2">
-    <div class="min-w-0 flex-1">
-      <a href="/v/{{.ID}}" class="block truncate text-[15px] font-medium font-display text-fg hover:text-amber" title="{{.Title}}">{{.Title}}</a>
-      <p class="mt-0.5 text-[13px] text-muted">{{date .CreatedAt}} · {{expires .ExpiresAt}}{{if .Size}} · {{bytes .Size}}{{end}}</p>
-    </div>
-    <div class="-mr-1.5 flex shrink-0">
-      {{if eq .Status "ready"}}<button class="icon-btn" onclick="copyText(location.origin+'/v/{{.ID}}')" title="Copy link" aria-label="Copy link"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg></button>
-      <a class="icon-btn" href="/v/{{.ID}}/video.mp4?download" download title="Download" aria-label="Download"><svg viewBox="0 0 24 24"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg></a>{{end}}
-      <button class="icon-btn" hx-post="/videos/{{.ID}}/visibility" hx-target="#v-{{.ID}}" hx-swap="outerHTML" title="{{if eq .Visibility "public"}}Public · click to make private{{else}}Private · click to make public{{end}}" aria-label="{{if eq .Visibility "public"}}Make private{{else}}Make public{{end}}">
-        {{if eq .Visibility "public"}}<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-        {{else}}<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-2.7 3.6M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7a9.7 9.7 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2"/></svg>{{end}}
-      </button>
-      <button class="icon-btn hover:!bg-danger/15 hover:!text-danger" hx-delete="/videos/{{.ID}}" hx-confirm="Delete “{{.Title}}” permanently?" hx-target="#v-{{.ID}}" hx-swap="outerHTML" title="Delete" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></button>
+    <a href="/v/{{.ID}}" class="min-w-0 flex-1 truncate font-display text-[15px] font-medium text-fg hover:text-amber" title="{{.Title}}">{{.Title}}</a>
+    <div class="-mr-1.5 -mt-1 flex shrink-0">
+      <button class="icon-btn" onclick="copyText(location.origin+'/v/{{.ID}}')" title="Copy link" aria-label="Copy link"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg></button>
+      <button class="icon-btn" onclick="this.closest('article').querySelector('dialog').showModal()" title="Details" aria-label="Details" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
     </div>
   </div>
+  <div class="mt-1 text-[13px]">{{template "meta" .}}</div>
+
+  <dialog aria-labelledby="d-{{.ID}}" class="w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-panel text-fg shadow-2xl shadow-black/50 ring-1 ring-line backdrop:bg-ink/70 backdrop:backdrop-blur-sm" onclick="if (event.target === this) this.close()">
+    <div class="p-5">
+      <div class="flex items-center justify-between">
+        <h2 id="d-{{.ID}}" class="font-display text-xl font-bold tracking-tight">Details</h2>
+        <button class="icon-btn -mr-1.5" onclick="this.closest('dialog').close()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <form class="mt-4 flex gap-2" hx-post="/videos/{{.ID}}/title" hx-target="#v-{{.ID}}" hx-swap="outerHTML">
+        <div class="field min-w-0 flex-1"><input id="t-{{.ID}}" name="title" value="{{.Title}}" maxlength="100" required class="input peer bg-ink" placeholder=" " autocomplete="off"><label class="float-label" for="t-{{.ID}}">Title</label></div>
+        <button class="btn btn-primary h-14 rounded-xl px-4">Rename</button>
+      </form>
+      <div class="mt-3 text-[13px]">{{template "meta" .}}</div>
+      <div class="-mx-2 mt-4 border-t border-line pt-2">
+        {{if eq .Status "ready"}}<a class="menu-item" href="/v/{{.ID}}/video.mp4?download" download><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>Download</a>{{end}}
+        <button class="menu-item" hx-post="/videos/{{.ID}}/visibility" hx-target="#v-{{.ID}}" hx-swap="outerHTML">
+          {{if eq .Visibility "public"}}<svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-2.7 3.6M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7a9.7 9.7 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2"/></svg><span>Make private<span class="block text-xs text-muted">Currently anyone with the link can watch</span></span>
+          {{else}}<svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Make public<span class="block text-xs text-muted">Currently only you can watch</span></span>{{end}}
+        </button>
+        <button class="menu-item text-danger hover:!bg-danger/15" hx-delete="/videos/{{.ID}}" hx-confirm="Delete “{{.Title}}” permanently?" hx-target="#v-{{.ID}}" hx-swap="outerHTML"><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>Delete</button>
+      </div>
+    </div>
+  </dialog>
 </article>{{end}}
 
 {{define "invites"}}{{$base := .Base}}
 {{if not .Invites}}<p class="py-6 text-center text-sm text-muted">No invites yet.</p>{{end}}
 <ul class="divide-y divide-line">
 {{range .Invites}}
-  <li class="flex items-center gap-3 py-3">
-    <span class="h-2 w-2 shrink-0 rounded-full {{if .Active}}bg-amber{{else}}bg-line{{end}}"></span>
+  <li class="flex items-center gap-4 py-4">
     <div class="min-w-0 flex-1">
-      <p class="text-sm {{if .Active}}text-fg{{else}}text-muted{{end}}">{{if .UsedBy.Valid}}Used by {{.UsedBy.String}}{{else if .IsExpired}}Expired{{else}}Active · {{expires .ExpiresAt}}{{end}}</p>
-      {{if .Active}}<code class="mt-0.5 block truncate text-xs text-muted">{{$base}}/register?token={{.Token}}</code>{{end}}
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+        {{if .Active}}<span class="badge bg-amber/15 text-amber">Active</span><span class="flex items-center gap-1.5"><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{expires .ExpiresAt}}</span>
+        {{else if .UsedBy.Valid}}<span class="badge bg-line text-fg">Used</span><span class="flex items-center gap-1.5"><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>{{.UsedBy.String}}</span>
+        {{else}}<span class="badge bg-line">Expired</span>{{end}}
+      </div>
+      {{if .Active}}<code class="mt-2 block truncate text-xs text-muted">{{$base}}/register?token={{.Token}}</code>{{end}}
     </div>
-    {{if .Active}}<button class="btn h-8 shrink-0 px-3" onclick="copyText(this.dataset.url, 'Invite link copied')" data-url="{{$base}}/register?token={{.Token}}">Copy</button>{{end}}
+    {{if .Active}}<button class="btn h-9 shrink-0 px-3.5" onclick="copyText(this.dataset.url, 'Invite link copied')" data-url="{{$base}}/register?token={{.Token}}"><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg>Copy</button>{{end}}
   </li>
+{{end}}
+</ul>{{end}}
+
+
+{{define "members"}}{{$me := .User.ID}}<ul id="members" class="divide-y divide-line">
+{{range .Members}}
+  <li class="flex items-center gap-4 py-4">
+    <div class="min-w-0 flex-1">
+      <p class="truncate text-[15px] font-medium text-fg">{{.Name}}{{if eq .ID $me}} <span class="font-normal text-muted">(you)</span>{{end}}</p>
+      <p class="mt-1 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[13px] text-muted">
+        <span class="flex items-center gap-1.5" title="Joined"><svg viewBox="0 0 24 24" class="ico h-[1.15em] w-[1.15em]" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>{{date .JoinedAt}}</span>
+        {{if .By}}<span class="flex items-center gap-1.5"><svg viewBox="0 0 24 24" class="ico h-[1.15em] w-[1.15em]" aria-hidden="true"><path d="M4 7l8 6 8-6M4 6h16v12H4z"/></svg>Invited by {{.By}}</span>{{end}}
+      </p>
+    </div>
+    {{if eq .ID $me}}<span class="badge bg-line text-fg" title="You can’t change your own role">{{if eq .Role "admin"}}Admin{{else}}User{{end}}</span>
+    {{else}}<select name="role" class="select-sm shrink-0" aria-label="Role for {{.Name}}" hx-post="/settings/users/{{.ID}}/role" hx-trigger="change" hx-target="#members" hx-swap="outerHTML">
+      <option value="user" {{if eq .Role "user"}}selected{{end}}>User</option>
+      <option value="admin" {{if eq .Role "admin"}}selected{{end}}>Admin</option>
+    </select>{{end}}
+  </li>
+{{else}}
+  <li class="py-6 text-sm text-muted">No one has joined yet. Send them an invite link.</li>
 {{end}}
 </ul>{{end}}

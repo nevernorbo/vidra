@@ -12,7 +12,7 @@
 {{end}}{{end}}
 
 {{define "content"}}
-<div id="watch" class="mx-auto max-w-4xl" {{if eq .Video.Status "processing"}}hx-get="/v/{{.Video.ID}}" hx-trigger="every 3s" hx-select="#watch" hx-swap="outerHTML"{{end}}>
+<div id="watch" class="mx-auto max-w-4xl" {{if eq .Video.Status "processing"}}hx-get="/v/{{.Video.ID}}" hx-trigger="every 3s[!window.editingTitle]" hx-select="#watch" hx-swap="outerHTML"{{end}}>
   <div class="-mx-4 sm:mx-0">
     {{if eq .Video.Status "ready"}}
     <video controls playsinline preload="metadata" poster="/v/{{.Video.ID}}/thumb.jpg" src="/v/{{.Video.ID}}/video.mp4" class="max-h-[75vh] w-full bg-black sm:rounded-2xl"></video>
@@ -24,28 +24,48 @@
   </div>
   <div id="meta" class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between" {{if .Owner}}hx-get="/v/{{.Video.ID}}" hx-trigger="refresh" hx-select="#meta" hx-swap="outerHTML"{{end}}>
     <div class="min-w-0">
+      {{if .Owner}}
+      <h1 id="title-view" class="font-display text-2xl font-bold tracking-[-0.02em] text-fg sm:text-3xl">
+        <button type="button" class="group -mx-1.5 rounded-lg px-1.5 text-left [overflow-wrap:anywhere] hover:bg-panel" onclick="editTitle(true)" title="Rename">{{.Video.Title}} <svg viewBox="0 0 24 24" class="ico ml-1 inline-block h-[0.7em] w-[0.7em] align-baseline text-muted transition group-hover:text-amber" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 00-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg><span class="sr-only">Rename</span></button>
+      </h1>
+      <form id="title-edit" hidden hx-post="/videos/{{.Video.ID}}/title" hx-swap="none" hx-on::after-request="if (event.detail.successful) { document.title = this.elements.title.value + ' · vidra'; editTitle(false); htmx.trigger('#meta', 'refresh') }">
+        <input name="title" value="{{.Video.Title}}" maxlength="100" required aria-label="Video title" class="-mx-1.5 w-full rounded-lg border-0 bg-panel px-1.5 font-display text-2xl font-bold tracking-[-0.02em] text-fg ring-2 ring-amber focus:outline-none sm:text-3xl"
+          onkeydown="if (event.key === 'Escape') { this.value = this.defaultValue; editTitle(false) }"
+          onblur="if (!window.editingTitle || this.form.classList.contains('htmx-request')) return; this.value.trim() === this.defaultValue ? editTitle(false) : this.form.requestSubmit()">
+      </form>
+      {{else}}
       <h1 class="break-words font-display text-2xl font-bold tracking-[-0.02em] text-fg sm:text-3xl">{{.Video.Title}}</h1>
-      <p class="mt-1.5 text-sm text-muted">{{date .Video.CreatedAt}}{{if .Video.Size}} · {{bytes .Video.Size}}{{end}} · {{expires .Video.ExpiresAt}}</p>
+      {{end}}
+      <div class="mt-2 text-sm">{{template "meta" .Video}}</div>
     </div>
     <div class="grid shrink-0 grid-cols-2 gap-2 sm:flex">
-      {{if ne .Video.Status "failed"}}<button class="btn btn-primary" onclick="copyText(location.origin + location.pathname)">Copy link</button>{{end}}
-      {{if eq .Video.Status "ready"}}<a class="btn" href="/v/{{.Video.ID}}/video.mp4?download" download>Download</a>{{end}}
+      {{if ne .Video.Status "failed"}}<button class="btn btn-primary" onclick="copyText(location.origin + location.pathname)"><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg>Copy link</button>{{end}}
+      {{if eq .Video.Status "ready"}}<a class="btn" href="/v/{{.Video.ID}}/video.mp4?download" download><svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>Download</a>{{end}}
       {{if .Owner}}
       <button class="btn" hx-post="/videos/{{.Video.ID}}/visibility" hx-swap="none" hx-on::after-request="event.detail.successful && htmx.trigger('#meta', 'refresh')" title="{{if eq .Video.Visibility "public"}}Anyone with the link can watch · click to make private{{else}}Only you can watch · click to make public{{end}}">
-        {{if eq .Video.Visibility "public"}}<svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 fill-none stroke-current" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Public
-        {{else}}<svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 fill-none stroke-current" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-2.7 3.6M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7a9.7 9.7 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2"/></svg>Private{{end}}
+        {{if eq .Video.Visibility "public"}}<svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Public
+        {{else}}<svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-2.7 3.6M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7a9.7 9.7 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2"/></svg>Private{{end}}
       </button>
-      <button class="btn hover:!bg-danger/15 hover:!text-danger" hx-delete="/videos/{{.Video.ID}}" hx-confirm="Delete “{{.Video.Title}}” permanently?" hx-swap="none" hx-on::after-request="if (event.detail.successful) location.href = '/videos'">
-        <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0 fill-none stroke-current" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>Delete
+      <button class="btn hover:!bg-danger/15 hover:!text-danger" hx-delete="/videos/{{.Video.ID}}" hx-confirm="Delete “{{.Video.Title}}” permanently?" hx-swap="none" hx-on::after-request="if (event.detail.successful) location.href = '/videos#deleted'">
+        <svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>Delete
       </button>
       {{end}}
     </div>
   </div>
 </div>
-<script>
-if (location.hash === '#copied') {
-  history.replaceState(null, '', location.pathname)
-  toast('Link copied')
+{{if .Owner}}<script>
+function editTitle(on) {
+  const f = document.getElementById('title-edit')
+  // set first: hiding the focused input fires blur, which must not save. Also pauses the processing poll mid-edit.
+  window.editingTitle = on
+  document.getElementById('title-view').hidden = on
+  f.hidden = !on
+  if (on) f.elements.title.select()
 }
-</script>
+</script>{{end}}
+{{if eq .Video.Status "processing"}}<script>
+document.body.addEventListener('htmx:afterSettle', function done() {
+  if (document.querySelector('#watch video')) { toast('Ready to watch'); document.body.removeEventListener('htmx:afterSettle', done) }
+})
+</script>{{end}}
 {{end}}
