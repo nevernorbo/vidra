@@ -1,0 +1,112 @@
+{{define "content"}}
+<div class="mx-auto max-w-2xl">
+  <h1 class="mb-1 text-2xl font-semibold tracking-tight">Upload a clip</h1>
+  <p class="mb-6 text-sm text-zinc-400">Videos are converted to MP4 so they play everywhere, including Discord.</p>
+
+  <div class="panel mb-4">{{template "usage" .Usage}}</div>
+
+  <form id="form" class="panel space-y-5">
+    <label id="drop" for="file" class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-zinc-700 px-4 py-10 text-center transition hover:border-indigo-500 hover:bg-zinc-900">
+      <svg viewBox="0 0 24 24" class="h-9 w-9 fill-none stroke-zinc-500" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7 9m5-5l5 5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>
+      <span id="picked" class="break-all text-sm font-medium">Drop a video here or tap to choose</span>
+      <span class="text-xs text-zinc-500">Any common video format</span>
+    </label>
+    <input id="file" type="file" accept="video/*" class="sr-only">
+
+    <div class="grid gap-4 sm:grid-cols-3">
+      <div><label class="label" for="expires">Expires after</label>
+        <select id="expires" name="expires" class="input"><option value="24h">24 hours</option><option value="7d" selected>7 days</option><option value="30d">30 days</option><option value="never">Never</option></select></div>
+      <div><label class="label" for="quality">Quality</label>
+        <select id="quality" name="quality" class="input"><option value="high">High (larger)</option><option value="balanced" selected>Balanced</option><option value="small">Small file</option></select></div>
+      <div><label class="label" for="visibility">Visibility</label>
+        <select id="visibility" name="visibility" class="input"><option value="public" selected>Public link</option><option value="private">Private</option></select></div>
+    </div>
+
+    <div id="progress" class="hidden">
+      <div class="mb-1.5 flex justify-between text-sm"><span id="status" class="text-zinc-300">Uploading…</span><span id="pct" class="font-medium">0%</span></div>
+      <div class="h-2.5 overflow-hidden rounded-full bg-zinc-800"><div id="bar" class="h-full w-0 rounded-full bg-indigo-500 transition-[width] duration-150"></div></div>
+    </div>
+    <p id="error" class="hidden rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300"></p>
+
+    <button id="go" class="btn btn-primary w-full !py-2.5" disabled>Upload</button>
+  </form>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id)
+  const input = $('file'), drop = $('drop'), form = $('form'), go = $('go')
+  let file = null
+  const fmt = n => n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB'
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+  function pick(f) {
+    if (!f) return
+    if (!f.type.startsWith('video/') && f.type !== '') return showError('That doesn’t look like a video file.')
+    file = f
+    $('picked').textContent = f.name + ' · ' + fmt(f.size)
+    go.disabled = false
+    $('error').classList.add('hidden')
+  }
+  function showError(msg) { const e = $('error'); e.textContent = msg; e.classList.remove('hidden') }
+
+  input.onchange = () => pick(input.files[0])
+  ;['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('border-indigo-500', 'bg-zinc-900') }))
+  ;['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('border-indigo-500', 'bg-zinc-900') }))
+  drop.addEventListener('drop', e => pick(e.dataTransfer.files[0]))
+
+  async function post(url, body) {
+    const r = await fetch(url, { method: 'POST', body })
+    if (!r.ok) throw new Error((await r.text()).trim() || r.statusText)
+    return r
+  }
+
+  // XHR rather than fetch: only XHR reports upload progress
+  const sendChunk = (id, i, blob, onProgress) => new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest()
+    x.open('POST', `/upload/chunk?id=${id}&index=${i}`)
+    x.upload.onprogress = e => onProgress(e.loaded)
+    x.onload = () => x.status < 300 ? resolve() : reject(new Error(x.responseText.trim() || 'Upload failed (' + x.status + ')'))
+    x.onerror = () => reject(new Error('Network error'))
+    x.send(blob)
+  })
+
+  function progress(done) {
+    const p = Math.min(100, Math.floor(done / file.size * 100))
+    $('bar').style.width = p + '%'
+    $('pct').textContent = p + '%'
+  }
+
+  form.onsubmit = async e => {
+    e.preventDefault()
+    if (!file) return
+    go.disabled = true
+    $('error').classList.add('hidden')
+    $('progress').classList.remove('hidden')
+    $('status').textContent = 'Uploading…'
+    progress(0)
+    try {
+      const fd = new FormData(form)
+      fd.set('filename', file.name)
+      fd.set('size', file.size)
+      const { id, chunk } = await (await post('/upload/init', fd)).json()
+      for (let i = 0, off = 0; off < file.size; i++, off += chunk) {
+        const blob = file.slice(off, off + chunk)
+        for (let tries = 0; ; tries++) {
+          try { await sendChunk(id, i, blob, loaded => progress(off + loaded)); break }
+          catch (err) { if (tries >= 3) throw err; await sleep(1000 * (tries + 1)) }
+        }
+        progress(off + blob.size)
+      }
+      $('status').textContent = 'Finishing…'
+      const { url } = await (await post('/upload/complete', new URLSearchParams({ id }))).json()
+      location.href = url
+    } catch (err) {
+      showError(err.message)
+      $('progress').classList.add('hidden')
+      go.disabled = false
+    }
+  }
+})()
+</script>
+{{end}}

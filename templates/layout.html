@@ -1,0 +1,50 @@
+{{define "layout"}}<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>{{if .Title}}{{.Title}} · {{end}}vidra</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236366f1'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='white'/%3E%3C/svg%3E">
+{{block "head" .}}{{end}}
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<style type="text/tailwindcss">
+  @layer components {
+    .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm font-medium text-zinc-100 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50; }
+    .btn-primary { @apply border-indigo-500 bg-indigo-500 text-white hover:bg-indigo-400; }
+    .btn-danger { @apply hover:border-red-500 hover:bg-red-500/20 hover:text-red-300; }
+    .input { @apply w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-base text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500; }
+    .panel { @apply rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-5; }
+    .label { @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-400; }
+  }
+  .htmx-request .spinner-hide { opacity: .5 }
+</style>
+</head>
+<body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
+<header class="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
+  <nav class="mx-auto flex h-14 max-w-5xl items-center gap-1 px-4 text-sm">
+    <a href="/" class="mr-3 flex items-center gap-2 text-base font-semibold tracking-tight">
+      <span class="grid h-7 w-7 place-items-center rounded-lg bg-indigo-500"><svg viewBox="0 0 24 24" class="h-4 w-4 fill-white"><path d="M8 5v14l11-7z"/></svg></span>vidra
+    </a>
+    {{if .User}}
+    <a href="/upload" class="rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800 hover:text-white">Upload</a>
+    <a href="/videos" class="rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800 hover:text-white">Library</a>
+    <a href="/settings" class="rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800 hover:text-white">Invites</a>
+    <form method="post" action="/logout" class="ml-auto"><button class="rounded-lg px-2.5 py-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white" title="Signed in as {{.User.Name}}">Log out</button></form>
+    {{else}}
+    <a href="/login" class="ml-auto rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800 hover:text-white">Log in</a>
+    {{end}}
+  </nav>
+</header>
+<main class="mx-auto max-w-5xl px-4 py-6 sm:py-8">{{template "content" .}}</main>
+<script>
+async function copyText(t, b) {
+  try { await navigator.clipboard.writeText(t) } catch {
+    const a = document.createElement('textarea'); a.value = t; document.body.append(a); a.select(); document.execCommand('copy'); a.remove()
+  }
+  if (b) { const o = b.dataset.label || (b.dataset.label = b.textContent); b.textContent = 'Copied!'; setTimeout(() => b.textContent = o, 1500) }
+}
+</script>
+</body>
+</html>{{end}}

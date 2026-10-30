@@ -1,0 +1,38 @@
+{{define "head"}}{{if and (eq .Video.Status "ready") (eq .Video.Visibility "public")}}
+<meta property="og:site_name" content="vidra">
+<meta property="og:title" content="{{.Video.Title}}">
+<meta property="og:type" content="video.other">
+<meta property="og:url" content="{{.Base}}/v/{{.Video.ID}}">
+<meta property="og:video" content="{{.Base}}/v/{{.Video.ID}}/video.mp4">
+<meta property="og:video:secure_url" content="{{.Base}}/v/{{.Video.ID}}/video.mp4">
+<meta property="og:video:type" content="video/mp4">
+{{if .Video.Width}}<meta property="og:video:width" content="{{.Video.Width}}">
+<meta property="og:video:height" content="{{.Video.Height}}">{{end}}
+<meta property="og:image" content="{{.Base}}/v/{{.Video.ID}}/thumb.jpg">
+{{end}}{{end}}
+
+{{define "content"}}
+<div class="mx-auto max-w-3xl">
+  <div id="player" {{if eq .Video.Status "processing"}}hx-get="/v/{{.Video.ID}}" hx-trigger="every 3s" hx-select="#player" hx-swap="outerHTML"{{end}}>
+    {{if eq .Video.Status "ready"}}
+    <video controls playsinline preload="metadata" poster="/v/{{.Video.ID}}/thumb.jpg" src="/v/{{.Video.ID}}/video.mp4" class="max-h-[75vh] w-full rounded-2xl bg-black"></video>
+    {{else if eq .Video.Status "processing"}}
+    <div class="grid aspect-video place-items-center rounded-2xl bg-zinc-900 text-zinc-400"><span class="flex items-center gap-2"><span class="h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-indigo-400"></span>Processing — this page updates automatically.</span></div>
+    {{else}}
+    <div class="grid aspect-video place-items-center rounded-2xl bg-zinc-900 text-red-400">This video could not be processed.</div>
+    {{end}}
+  </div>
+  <div class="mt-4 flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h1 class="break-words text-xl font-semibold tracking-tight">{{.Video.Title}}</h1>
+      <p class="mt-1 text-sm text-zinc-500">{{date .Video.CreatedAt}}{{if .Video.Size}} · {{bytes .Video.Size}}{{end}} · {{expires .Video.ExpiresAt}}{{if .Owner}} · {{.Video.Visibility}}{{end}}</p>
+    </div>
+    {{if eq .Video.Status "ready"}}
+    <div class="flex gap-2">
+      <button class="btn" onclick="copyText(location.href, this)">Copy link</button>
+      <a class="btn" href="/v/{{.Video.ID}}/video.mp4?download" download>Download</a>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}

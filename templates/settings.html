@@ -1,0 +1,8 @@
+{{define "content"}}
+<h1 class="mb-1 text-2xl font-semibold tracking-tight">Invite people</h1>
+<p class="mb-6 text-sm text-zinc-400">Each link works once and expires after 7 days.</p>
+<div class="panel">
+  <button class="btn btn-primary" hx-post="/settings/invite" hx-target="#invites" hx-swap="innerHTML">Generate invite link</button>
+  <div id="invites" class="mt-4">{{template "invites" .}}</div>
+</div>
+{{end}}

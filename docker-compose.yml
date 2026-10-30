@@ -1,0 +1,32 @@
+# Vidra, laid out like the stacks in ../home-infra: data under ${DATA_DIR}, joined to
+# the shared networks so the existing cloudflared container can reach it.
+# In Cloudflare Zero Trust, add a Public Hostname pointing at  http://vidra:8080
+
+services:
+  vidra:
+    container_name: vidra
+    build: .
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      - TZ=${TZ:-UTC}
+      # Only used to create the first account when the database has no users yet
+      - ADMIN_USER=${VIDRA_ADMIN_USER:-}
+      - ADMIN_PASSWORD=${VIDRA_ADMIN_PASSWORD:-}
+      # Public origin used in Open Graph / Discord embed URLs, e.g. https://vidra.example.com
+      - BASE_URL=${VIDRA_BASE_URL:-}
+    volumes:
+      - "${DATA_DIR:-/opt/homelab/data}/vidra:/data"
+    ports:
+      - "${VIDRA_PORT:-8086}:8080"
+    networks:
+      - homelab-network
+      - cloudflare-network
+
+networks:
+  homelab-network:
+    name: ${DOCKER_NETWORK:-homelab-network}
+    external: true
+  cloudflare-network:
+    name: ${CLOUDFLARE_NETWORK:-cloudflare-network}
+    external: true

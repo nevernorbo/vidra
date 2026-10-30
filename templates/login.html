@@ -1,0 +1,13 @@
+{{define "content"}}
+<div class="mx-auto max-w-sm pt-6 sm:pt-12">
+  <h1 class="mb-1 text-2xl font-semibold tracking-tight">Welcome back</h1>
+  <p class="mb-6 text-sm text-zinc-400">Log in to upload and share clips.</p>
+  <form method="post" action="/login" class="panel space-y-4">
+    {{if .Error}}<p class="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{{.Error}}</p>{{end}}
+    <div><label class="label" for="u">Username</label><input id="u" name="username" class="input" autocomplete="username" autocapitalize="none" required autofocus></div>
+    <div><label class="label" for="p">Password</label><input id="p" name="password" type="password" class="input" autocomplete="current-password" required></div>
+    <button class="btn btn-primary w-full !py-2.5">Log in</button>
+  </form>
+  <p class="mt-4 text-center text-xs text-zinc-500">Registration is invite-only.</p>
+</div>
+{{end}}

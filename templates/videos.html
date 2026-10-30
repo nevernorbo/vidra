@@ -1,0 +1,17 @@
+{{define "content"}}
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Library</h1>
+    <p class="text-sm text-zinc-400">Your uploads. Public videos can be opened by anyone with the link.</p>
+  </div>
+  <a href="/upload" class="btn btn-primary">Upload</a>
+</div>
+<div class="panel mb-6">{{template "usage" .Usage}}</div>
+{{if .Videos}}
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {{range .Videos}}{{template "card" .}}{{end}}
+</div>
+{{else}}
+<div class="panel py-12 text-center text-zinc-400">Nothing here yet. <a href="/upload" class="text-indigo-400 hover:underline">Upload your first clip</a>.</div>
+{{end}}
+{{end}}
