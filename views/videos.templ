@@ -1,0 +1,47 @@
+package views
+
+// Library lists the user's own videos, or with shared set, the ones they opened from other people's links.
+templ Library(videos []*Video, u Usage, shared bool) {
+	<div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+		<h1 class="page-title">Library</h1>
+		<div class="flex w-full items-center gap-4 sm:w-auto">
+			<div class="flex-1 sm:w-56">
+				@UsageMeter(u)
+			</div>
+			<a href="/upload" class="btn btn-primary">Upload</a>
+		</div>
+	</div>
+	<nav class="mt-6 inline-flex rounded-full bg-panel p-1 text-sm font-medium ring-1 ring-inset ring-line" aria-label="Show">
+		<a
+			href="/videos"
+			class={ "rounded-full px-4 py-1.5 transition", templ.KV("text-muted hover:text-fg", shared), templ.KV("bg-line text-fg", !shared) }
+			if !shared {
+				aria-current="page"
+			}
+		>My videos</a>
+		<a
+			href="/videos?shared"
+			class={ "rounded-full px-4 py-1.5 transition", templ.KV("bg-line text-fg", shared), templ.KV("text-muted hover:text-fg", !shared) }
+			if shared {
+				aria-current="page"
+			}
+		>Shared with me</a>
+	</nav>
+	if len(videos) > 0 {
+		<div class="mt-8 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+			for _, v := range videos {
+				@VideoCard(v)
+			}
+		</div>
+	} else if shared {
+		<div class="filmstrip mt-8 rounded-2xl px-6 py-20 text-center">
+			<p class="font-display text-2xl font-bold tracking-tight">Nothing shared with you yet</p>
+			<p class="mt-2 text-sm text-muted">Videos you open from someone else’s link show up here.</p>
+		</div>
+	} else {
+		<a href="/upload" class="filmstrip mt-8 block rounded-2xl px-6 py-20 text-center transition hover:ring-1 hover:ring-amber/50">
+			<span class="font-display text-2xl font-bold tracking-tight">No clips yet</span>
+			<span class="mt-2 block text-sm text-amber">Upload your first one</span>
+		</a>
+	}
+}

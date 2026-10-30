@@ -5,19 +5,21 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
-	"embed"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/a-h/templ"
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
+
+	"vidra/views"
 )
 
 const (
@@ -27,12 +29,13 @@ const (
 	inviteTTL  = 7 * 24 * time.Hour
 )
 
-//go:embed templates/*.html
-var tplFS embed.FS
+// Pages are templ components (views/*.templ); go generate compiles them to *_templ.go.
+//
+//go:generate go tool templ generate
 
 // Compiled ahead of time: the browser must have the styles before first paint, or every navigation flashes unstyled.
 //
-//go:generate npx -y tailwindcss@3.4.16 -c tailwind.config.js -i templates/app.css -o static/app.css --minify
+//go:generate npx -y tailwindcss@3.4.16 -c tailwind.config.js -i app.css -o static/app.css --minify
 //go:embed static/app.css
 var appCSS []byte
 
@@ -42,29 +45,10 @@ var cssVersion = fmt.Sprintf("%x", sha256.Sum256(appCSS))[:12]
 var (
 	db      *sql.DB
 	dataDir string
-	pages   = map[string]*template.Template{}
 	queue   = make(chan string, 1024) // video ids waiting for ffmpeg
 )
 
-var funcs = template.FuncMap{
-	"asset": func(path string) string { return path + "?v=" + cssVersion },
-	"bytes": fmtBytes,
-	"expires": func(t int64) string {
-		if t == 0 {
-			return "Never expires"
-		}
-		d := time.Until(time.Unix(t, 0))
-		switch {
-		case d >= 48*time.Hour:
-			return fmt.Sprintf("Expires in %dd", int(d.Hours()/24))
-		case d >= time.Hour:
-			return fmt.Sprintf("Expires in %dh", int(d.Hours()))
-		default:
-			return fmt.Sprintf("Expires in %dm", max(int(d.Minutes()), 1))
-		}
-	},
-	"date": func(t int64) string { return time.Unix(t, 0).Format("2 Jan 2006") },
-}
+func asset(path string) string { return path + "?v=" + cssVersion }
 
 const schema = `
 CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, pass_hash TEXT NOT NULL,
@@ -107,10 +91,6 @@ func setup(dir string) http.Handler {
 	_, err = db.Exec(schema)
 	must(err)
 	seedAdmin()
-
-	for _, p := range []string{"login", "register", "upload", "videos", "watch", "settings"} {
-		pages[p] = template.Must(template.New("").Funcs(funcs).ParseFS(tplFS, "templates/layout.html", "templates/partials.html", "templates/"+p+".html"))
-	}
 
 	// resume transcodes interrupted by a restart
 	for _, id := range ids(`SELECT id FROM videos WHERE status='processing'`) {
@@ -181,15 +161,12 @@ func secure(next http.Handler) http.Handler {
 	})
 }
 
-func render(w http.ResponseWriter, r *http.Request, page string, data map[string]any) {
-	if data == nil {
-		data = map[string]any{}
-	}
-	data["User"] = userFrom(r)
-	data["Base"] = baseURL(r)
+// render writes content inside the page layout. title names the tab and picks the active nav link;
+// head adds to <head> and may be nil.
+func render(w http.ResponseWriter, r *http.Request, title string, head, content templ.Component) {
 	var buf bytes.Buffer
-	if err := pages[page].ExecuteTemplate(&buf, "layout", data); err != nil {
-		log.Println("render", page, err)
+	if err := views.Layout(title, userFrom(r), asset("/app.css"), head).Render(templ.WithChildren(r.Context(), content), &buf); err != nil {
+		log.Println("render", title, err)
 		http.Error(w, "internal error", 500)
 		return
 	}
@@ -197,11 +174,11 @@ func render(w http.ResponseWriter, r *http.Request, page string, data map[string
 	buf.WriteTo(w)
 }
 
-// fragment renders a named partial for HTMX responses.
-func fragment(w http.ResponseWriter, name string, data any) {
+// fragment renders a partial for HTMX responses.
+func fragment(w http.ResponseWriter, r *http.Request, c templ.Component) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := pages["videos"].ExecuteTemplate(w, name, data); err != nil {
-		log.Println("fragment", name, err)
+	if err := c.Render(r.Context(), w); err != nil {
+		log.Println("fragment", err)
 	}
 }
 
@@ -276,18 +253,6 @@ func ids(query string, args ...any) (out []string) {
 		out = append(out, s)
 	}
 	return
-}
-
-func fmtBytes(n int64) string {
-	if n < 1024 {
-		return fmt.Sprintf("%d B", n)
-	}
-	f, i := float64(n)/1024, 0
-	for f >= 1024 && i < 3 {
-		f /= 1024
-		i++
-	}
-	return fmt.Sprintf("%.1f %cB", f, "KMGT"[i])
 }
 
 func hashPassword(p string) (string, error) {

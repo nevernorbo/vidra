@@ -6,28 +6,24 @@ import (
 	"net/http"
 	"os"
 	"strings"
-)
 
-type Video struct {
-	ID, Title, Visibility, Status      string
-	UserID, Size, CreatedAt, ExpiresAt int64
-	Width, Height                      int
-	By                                 string // uploader's name, set only in the shared-with-me list
-}
+	"vidra/views"
+)
 
 const videoCols = `id, user_id, title, file_size, visibility, status, width, height, created_at, expires_at`
 
-func (v *Video) scan(s interface{ Scan(...any) error }, extra ...any) error {
+// scanVideo reads videoCols into v, plus any extra columns selected after them.
+func scanVideo(v *views.Video, s interface{ Scan(...any) error }, extra ...any) error {
 	return s.Scan(append([]any{&v.ID, &v.UserID, &v.Title, &v.Size, &v.Visibility, &v.Status, &v.Width, &v.Height, &v.CreatedAt, &v.ExpiresAt}, extra...)...)
 }
 
-func getVideo(id string) (*Video, error) {
-	v := &Video{}
-	return v, v.scan(db.QueryRow(`SELECT `+videoCols+` FROM videos WHERE id=?`, id))
+func getVideo(id string) (*views.Video, error) {
+	v := &views.Video{}
+	return v, scanVideo(v, db.QueryRow(`SELECT `+videoCols+` FROM videos WHERE id=?`, id))
 }
 
 // getOwned returns the video only when the logged-in user owns it.
-func getOwned(r *http.Request) *Video {
+func getOwned(r *http.Request) *views.Video {
 	v, err := getVideo(r.PathValue("id"))
 	if err != nil || v.UserID != userFrom(r).ID {
 		return nil
@@ -35,7 +31,7 @@ func getOwned(r *http.Request) *Video {
 	return v
 }
 
-func (v *Video) visibleTo(u *User) bool {
+func visibleTo(v *views.Video, u *views.User) bool {
 	if v.ExpiresAt > 0 && v.ExpiresAt <= now() {
 		return false
 	}
@@ -61,20 +57,20 @@ func library(w http.ResponseWriter, r *http.Request) {
 			ORDER BY o.opened_at DESC`
 		args = []any{u.ID, now()}
 	}
-	var list []*Video
+	var list []*views.Video
 	rows, err := db.Query(q, args...)
 	if err != nil {
 		log.Println("library", err)
 	} else {
 		for rows.Next() {
-			v := &Video{}
-			if v.scan(rows, &v.By) == nil {
+			v := &views.Video{}
+			if scanVideo(v, rows, &v.By) == nil {
 				list = append(list, v)
 			}
 		}
 		rows.Close()
 	}
-	render(w, r, "videos", map[string]any{"Title": "Library", "Videos": list, "Usage": usage(u.ID), "Shared": shared})
+	render(w, r, "Library", nil, views.Library(list, usage(u.ID), shared))
 }
 
 func card(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +79,7 @@ func card(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	fragment(w, "card", v)
+	fragment(w, r, views.VideoCard(v))
 }
 
 func toggleVisibility(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +91,7 @@ func toggleVisibility(w http.ResponseWriter, r *http.Request) {
 	v.Visibility = map[string]string{"public": "private", "private": "public"}[v.Visibility]
 	db.Exec(`UPDATE videos SET visibility=? WHERE id=?`, v.Visibility, v.ID)
 	notify(w, map[string]string{"public": "Anyone with the link can watch", "private": "Only you can watch this video now"}[v.Visibility])
-	fragment(w, "card", v)
+	fragment(w, r, views.VideoCard(v))
 }
 
 func renameVideo(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +111,7 @@ func renameVideo(w http.ResponseWriter, r *http.Request) {
 	db.Exec(`UPDATE videos SET title=? WHERE id=?`, title, v.ID)
 	v.Title = title
 	notify(w, "Video renamed")
-	fragment(w, "card", v) // the library swaps the card; the watch page ignores the body
+	fragment(w, r, views.VideoCard(v)) // the library swaps the card; the watch page ignores the body
 }
 
 func deleteVideoHandler(w http.ResponseWriter, r *http.Request) {
@@ -128,26 +124,26 @@ func deleteVideoHandler(w http.ResponseWriter, r *http.Request) {
 	notify(w, "Video deleted")
 	u := usage(v.UserID)
 	u.OOB = true
-	fragment(w, "usage", u) // the card itself is swapped for nothing; this refreshes the meter
+	fragment(w, r, views.UsageMeter(u)) // the card itself is swapped for nothing; this refreshes the meter
 }
 
 func watch(w http.ResponseWriter, r *http.Request) {
 	u := userFrom(r)
 	v, err := getVideo(r.PathValue("id"))
-	if err != nil || !v.visibleTo(u) {
+	if err != nil || !visibleTo(v, u) {
 		http.NotFound(w, r)
 		return
 	}
 	if u != nil && u.ID != v.UserID {
 		db.Exec(`INSERT INTO opened(user_id, video_id, opened_at) VALUES(?,?,?) ON CONFLICT DO UPDATE SET opened_at=excluded.opened_at`, u.ID, v.ID, now())
 	}
-	render(w, r, "watch", map[string]any{"Title": v.Title, "Video": v, "Owner": u != nil && u.ID == v.UserID})
+	render(w, r, v.Title, views.WatchHead(v, baseURL(r)), views.Watch(v, u != nil && u.ID == v.UserID))
 }
 
 func serveFile(sub, ext, ctype string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		v, err := getVideo(r.PathValue("id"))
-		if err != nil || v.Status != "ready" || !v.visibleTo(userFrom(r)) {
+		if err != nil || v.Status != "ready" || !visibleTo(v, userFrom(r)) {
 			http.NotFound(w, r)
 			return
 		}

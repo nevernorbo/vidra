@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"vidra/views"
 )
 
 var expiries = map[string]int64{"24h": 24 * 3600, "7d": 7 * 24 * 3600, "30d": 30 * 24 * 3600, "never": 0}
@@ -21,12 +23,6 @@ var crfs = map[string]string{"high": "20", "balanced": "23", "small": "28"}
 
 func path(sub, name string) string { return filepath.Join(dataDir, sub, name) }
 
-type Usage struct {
-	Used, Quota int64
-	Pct         int
-	OOB         bool
-}
-
 // usedBytes counts stored videos plus uploads still in flight, so parallel uploads can't dodge the quota.
 func usedBytes(uid int64) int64 {
 	var n int64
@@ -34,13 +30,13 @@ func usedBytes(uid int64) int64 {
 	return n
 }
 
-func usage(uid int64) Usage {
+func usage(uid int64) views.Usage {
 	used := usedBytes(uid)
-	return Usage{Used: used, Quota: quota, Pct: int(min(used*100/quota, 100))}
+	return views.Usage{Used: used, Quota: quota, Pct: int(min(used*100/quota, 100))}
 }
 
 func uploadPage(w http.ResponseWriter, r *http.Request) {
-	render(w, r, "upload", map[string]any{"Title": "Upload", "Usage": usage(userFrom(r).ID), "ChunkSize": chunkSize})
+	render(w, r, "Upload", nil, views.Upload(usage(userFrom(r).ID)))
 }
 
 func uploadInit(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +53,7 @@ func uploadInit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if free := quota - usedBytes(u.ID); size > free {
-		http.Error(w, fmt.Sprintf("Not enough storage: this file is %s but only %s is free.", fmtBytes(size), fmtBytes(max(free, 0))), http.StatusRequestEntityTooLarge)
+		http.Error(w, fmt.Sprintf("Not enough storage: this file is %s but only %s is free.", views.FormatBytes(size), views.FormatBytes(max(free, 0))), http.StatusRequestEntityTooLarge)
 		return
 	}
 	id := newID()

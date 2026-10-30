@@ -1,0 +1,21 @@
+package views
+
+templ Settings(invites []Invite, members []Member, me int64, base string) {
+	<div class="mx-auto max-w-2xl">
+		<div class="flex flex-wrap items-end justify-between gap-4">
+			<div>
+				<h1 class="page-title">Invites</h1>
+				<p class="page-sub">Each link works once and expires after 7 days.</p>
+			</div>
+			<button class="btn btn-primary" hx-post="/settings/invite" hx-target="#invites" hx-swap="innerHTML">New invite link</button>
+		</div>
+		<div id="invites" class="mt-8">
+			@InviteList(invites, base)
+		</div>
+		<h2 class="mt-16 font-display text-2xl font-bold tracking-tight">People</h2>
+		<p class="page-sub">Everyone who joined with an invite. Admins can send invites and change roles.</p>
+		<div class="mt-4">
+			@MemberList(members, me)
+		</div>
+	</div>
+}

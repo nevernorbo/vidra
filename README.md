@@ -74,7 +74,7 @@ To click through the UI locally, run `docker compose --profile dev up --watch vi
 
 Or with Go 1.26+ installed: `ADMIN_USER=admin ADMIN_PASSWORD=password123 go run .`. This needs `ffmpeg` and `ffprobe` on your `PATH`, and it stores data in `./data`.
 
-Styles are Tailwind, compiled ahead of time into `static/app.css` and embedded in the binary. After changing classes in `templates/` or `templates/app.css`, run `go generate` (needs Node) and commit the result. Docker builds regenerate it anyway.
+Pages are [templ](https://templ.guide) components in `views/*.templ`, compiled to the `*_templ.go` files next to them; `views/` also holds the records they display. Styles are Tailwind, compiled ahead of time into `static/app.css` and embedded in the binary. After changing a template or `app.css`, run `go generate` (Tailwind needs Node) and commit the result. Docker builds regenerate both anyway. `go tool templ fmt .` formats the templates; the templ editor extension does it on save.
 
 ## Limitations
 

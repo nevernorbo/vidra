@@ -11,21 +11,16 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"vidra/views"
 )
-
-type User struct {
-	ID         int64
-	Name, Role string
-}
-
-func (u *User) IsAdmin() bool { return u.Role == "admin" }
 
 type ctxKey struct{}
 
 var usernameRE = regexp.MustCompile(`^[a-zA-Z0-9_-]{3,32}$`)
 
-func userFrom(r *http.Request) *User {
-	u, _ := r.Context().Value(ctxKey{}).(*User)
+func userFrom(r *http.Request) *views.User {
+	u, _ := r.Context().Value(ctxKey{}).(*views.User)
 	return u
 }
 
@@ -33,7 +28,7 @@ func userFrom(r *http.Request) *User {
 func sessions(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie("sid"); err == nil {
-			u := &User{}
+			u := &views.User{}
 			err := db.QueryRow(`SELECT u.id, u.username, u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>?`,
 				c.Value, now()).Scan(&u.ID, &u.Name, &u.Role)
 			switch {
@@ -102,7 +97,7 @@ func loginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/upload", http.StatusSeeOther)
 		return
 	}
-	render(w, r, "login", map[string]any{"Title": "Log in"})
+	render(w, r, "Log in", nil, views.Login(""))
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +106,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	err := db.QueryRow(`SELECT id, pass_hash FROM users WHERE username=?`, strings.TrimSpace(r.FormValue("username"))).Scan(&id, &hash)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("password"))) != nil {
 		w.WriteHeader(http.StatusUnauthorized)
-		render(w, r, "login", map[string]any{"Title": "Log in", "Error": "Wrong username or password."})
+		render(w, r, "Log in", nil, views.Login("Wrong username or password."))
 		return
 	}
 	startSession(w, r, id)
@@ -134,19 +129,18 @@ func inviteValid(token string) bool {
 
 func registerPage(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
-	data := map[string]any{"Title": "Create account", "Token": token}
-	if !inviteValid(token) {
+	invalid := !inviteValid(token)
+	if invalid {
 		w.WriteHeader(http.StatusForbidden)
-		data["Invalid"] = true
 	}
-	render(w, r, "register", data)
+	render(w, r, "Create account", nil, views.Register(token, "", "", invalid))
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
 	token, name, pass := r.FormValue("token"), strings.TrimSpace(r.FormValue("username")), r.FormValue("password")
 	fail := func(code int, msg string) {
 		w.WriteHeader(code)
-		render(w, r, "register", map[string]any{"Title": "Create account", "Token": token, "Error": msg, "Username": name})
+		render(w, r, "Create account", nil, views.Register(token, name, msg, false))
 	}
 	switch {
 	case !inviteValid(token):
@@ -175,14 +169,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/upload", http.StatusSeeOther)
 }
 
-type Invite struct {
-	Token             string
-	ExpiresAt         int64
-	UsedBy            sql.NullString
-	Active, IsExpired bool
-}
-
-func invites(uid int64) (out []Invite) {
+func invites(uid int64) (out []views.Invite) {
 	rows, err := db.Query(`SELECT i.token, i.expires_at, u.username FROM invites i LEFT JOIN users u ON u.id=i.used_by
 		WHERE i.created_by=? ORDER BY i.created_at DESC LIMIT 20`, uid)
 	if err != nil {
@@ -190,7 +177,7 @@ func invites(uid int64) (out []Invite) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var i Invite
+		var i views.Invite
 		rows.Scan(&i.Token, &i.ExpiresAt, &i.UsedBy)
 		i.IsExpired = i.ExpiresAt <= now()
 		i.Active = !i.UsedBy.Valid && !i.IsExpired
@@ -199,14 +186,8 @@ func invites(uid int64) (out []Invite) {
 	return
 }
 
-type Member struct {
-	ID             int64
-	Name, Role, By string
-	JoinedAt       int64
-}
-
 // members lists everyone who signed up through an invite, newest first.
-func members() (out []Member) {
+func members() (out []views.Member) {
 	rows, err := db.Query(`SELECT u.id, u.username, u.role, u.created_at, COALESCE(b.username, '') FROM users u
 		JOIN invites i ON i.used_by=u.id LEFT JOIN users b ON b.id=i.created_by ORDER BY u.created_at DESC`)
 	if err != nil {
@@ -214,7 +195,7 @@ func members() (out []Member) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var m Member
+		var m views.Member
 		rows.Scan(&m.ID, &m.Name, &m.Role, &m.JoinedAt, &m.By)
 		out = append(out, m)
 	}
@@ -222,7 +203,8 @@ func members() (out []Member) {
 }
 
 func settings(w http.ResponseWriter, r *http.Request) {
-	render(w, r, "settings", map[string]any{"Title": "Settings", "Invites": invites(userFrom(r).ID), "Members": members()})
+	u := userFrom(r)
+	render(w, r, "Settings", nil, views.Settings(invites(u.ID), members(), u.ID, baseURL(r)))
 }
 
 func setRole(w http.ResponseWriter, r *http.Request) {
@@ -243,7 +225,7 @@ func setRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	notify(w, map[string]string{"admin": name + " is now an admin", "user": name + " is no longer an admin"}[role])
-	fragment(w, "members", map[string]any{"Members": members(), "User": me})
+	fragment(w, r, views.MemberList(members(), me.ID))
 }
 
 func newInvite(w http.ResponseWriter, r *http.Request) {
@@ -251,5 +233,5 @@ func newInvite(w http.ResponseWriter, r *http.Request) {
 	db.Exec(`INSERT INTO invites(token, created_by, created_at, expires_at) VALUES(?,?,?,?)`,
 		randHex(16), u.ID, now(), now()+int64(inviteTTL.Seconds()))
 	notify(w, "Invite link created")
-	fragment(w, "invites", map[string]any{"Invites": invites(u.ID), "Base": baseURL(r)})
+	fragment(w, r, views.InviteList(invites(u.ID), baseURL(r)))
 }

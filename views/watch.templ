@@ -1,0 +1,173 @@
+package views
+
+import "strconv"
+
+// WatchHead adds the Open Graph tags that make Discord and others embed a playable video.
+templ WatchHead(v *Video, base string) {
+	if v.Status == "ready" && v.Visibility == "public" {
+		<meta property="og:site_name" content="vidra"/>
+		<meta property="og:title" content={ v.Title }/>
+		<meta property="og:type" content="video.other"/>
+		<meta property="og:url" content={ base + "/v/" + v.ID }/>
+		<meta property="og:video" content={ base + "/v/" + v.ID + "/video.mp4" }/>
+		<meta property="og:video:secure_url" content={ base + "/v/" + v.ID + "/video.mp4" }/>
+		<meta property="og:video:type" content="video/mp4"/>
+		if v.Width != 0 {
+			<meta property="og:video:width" content={ strconv.Itoa(v.Width) }/>
+			<meta property="og:video:height" content={ strconv.Itoa(v.Height) }/>
+		}
+		<meta property="og:image" content={ base + "/v/" + v.ID + "/thumb.jpg" }/>
+	}
+}
+
+// Watch is the player page. owner adds renaming, visibility and delete controls.
+templ Watch(v *Video, owner bool) {
+	<div
+		id="watch"
+		class="mx-auto max-w-4xl"
+		if v.Status == "processing" {
+			hx-get={ "/v/" + v.ID }
+			hx-trigger="every 3s[!window.editingTitle]"
+			hx-select="#watch"
+			hx-swap="outerHTML"
+		}
+	>
+		<div class="-mx-4 sm:mx-0">
+			switch v.Status {
+				case "ready":
+					<video
+						controls
+						playsinline
+						preload="metadata"
+						poster={ "/v/" + v.ID + "/thumb.jpg" }
+						src={ "/v/" + v.ID + "/video.mp4" }
+						class="max-h-[75vh] w-full bg-black sm:rounded-2xl"
+					></video>
+				case "processing":
+					<div class="filmstrip grid aspect-video place-items-center px-4 text-center text-sm text-muted sm:rounded-2xl">
+						<span class="flex items-center gap-2">
+							<span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-line border-t-amber"></span>
+							Processing
+						</span>
+					</div>
+				default:
+					<div class="grid aspect-video place-items-center bg-panel text-sm text-danger sm:rounded-2xl">This video could not be processed.</div>
+			}
+		</div>
+		<div
+			id="meta"
+			class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+			if owner {
+				hx-get={ "/v/" + v.ID }
+				hx-trigger="refresh"
+				hx-select="#meta"
+				hx-swap="outerHTML"
+			}
+		>
+			<div class="min-w-0">
+				if owner {
+					<h1 id="title-view" class="font-display text-2xl font-bold tracking-[-0.02em] text-fg sm:text-3xl">
+						<button
+							type="button"
+							class="group -mx-1.5 rounded-lg px-1.5 text-left [overflow-wrap:anywhere] hover:bg-panel"
+							onclick="editTitle(true)"
+							title="Rename"
+						>
+							{ v.Title }
+							@icon("pencil", "ml-1 inline-block h-[0.7em] w-[0.7em] align-baseline text-muted transition group-hover:text-amber")
+							<span class="sr-only">Rename</span>
+						</button>
+					</h1>
+					<form
+						id="title-edit"
+						hidden
+						hx-post={ "/videos/" + v.ID + "/title" }
+						hx-swap="none"
+						hx-on::after-request="if (event.detail.successful) { document.title = this.elements.title.value + ' · vidra'; editTitle(false); htmx.trigger('#meta', 'refresh') }"
+					>
+						<input
+							name="title"
+							value={ v.Title }
+							maxlength="100"
+							required
+							aria-label="Video title"
+							class="-mx-1.5 w-full rounded-lg border-0 bg-panel px-1.5 font-display text-2xl font-bold tracking-[-0.02em] text-fg
+								ring-2 ring-amber focus:outline-none sm:text-3xl"
+							onkeydown="if (event.key === 'Escape') { this.value = this.defaultValue; editTitle(false) }"
+							onblur="if (!window.editingTitle || this.form.classList.contains('htmx-request')) return; this.value.trim() === this.defaultValue ? editTitle(false) : this.form.requestSubmit()"
+						/>
+					</form>
+				} else {
+					<h1 class="break-words font-display text-2xl font-bold tracking-[-0.02em] text-fg sm:text-3xl">{ v.Title }</h1>
+				}
+				<div class="mt-2 text-sm">
+					@videoMeta(v)
+				</div>
+			</div>
+			<div class="grid shrink-0 grid-cols-2 gap-2 sm:flex">
+				if v.Status != "failed" {
+					<button class="btn btn-primary" onclick="copyText(location.origin + location.pathname)">
+						@icon("link", "")
+						Copy link
+					</button>
+				}
+				if v.Status == "ready" {
+					<a class="btn" href={ "/v/" + v.ID + "/video.mp4?download" } download>
+						@icon("download", "")
+						Download
+					</a>
+				}
+				if owner {
+					<button
+						class="btn"
+						hx-post={ "/videos/" + v.ID + "/visibility" }
+						hx-swap="none"
+						hx-on::after-request="event.detail.successful && htmx.trigger('#meta', 'refresh')"
+						if v.Visibility == "public" {
+							title="Anyone with the link can watch · click to make private"
+						} else {
+							title="Only you can watch · click to make public"
+						}
+					>
+						if v.Visibility == "public" {
+							@icon("eye", "")
+							Public
+						} else {
+							@icon("eye-off", "")
+							Private
+						}
+					</button>
+					<button
+						class="btn hover:!bg-danger/15 hover:!text-danger"
+						hx-delete={ "/videos/" + v.ID }
+						hx-confirm={ "Delete “" + v.Title + "” permanently?" }
+						hx-swap="none"
+						hx-on::after-request="if (event.detail.successful) location.href = '/videos#deleted'"
+					>
+						@icon("trash", "")
+						Delete
+					</button>
+				}
+			</div>
+		</div>
+	</div>
+	if owner {
+		<script>
+			function editTitle(on) {
+				const f = document.getElementById('title-edit')
+				// set first: hiding the focused input fires blur, which must not save. Also pauses the processing poll mid-edit.
+				window.editingTitle = on
+				document.getElementById('title-view').hidden = on
+				f.hidden = !on
+				if (on) f.elements.title.select()
+			}
+		</script>
+	}
+	if v.Status == "processing" {
+		<script>
+			document.body.addEventListener('htmx:afterSettle', function done() {
+				if (document.querySelector('#watch video')) { toast('Ready to watch'); document.body.removeEventListener('htmx:afterSettle', done) }
+			})
+		</script>
+	}
+}

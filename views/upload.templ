@@ -1,0 +1,161 @@
+package views
+
+templ Upload(u Usage) {
+	<div class="mx-auto max-w-xl">
+		<h1 class="page-title">Upload</h1>
+		<form id="form" class="mt-8 space-y-5">
+			<label
+				id="drop"
+				for="file"
+				class="filmstrip flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl px-6 py-16 text-center
+					ring-1 ring-inset ring-line transition hover:ring-amber/60 sm:py-20"
+			>
+				<span class="grid h-12 w-12 place-items-center rounded-full bg-amber/15">
+					<svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-amber" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M12 16V4m0 0L7 9m5-5l5 5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"></path>
+					</svg>
+				</span>
+				<span class="flex max-w-full flex-col items-center gap-2">
+					<span id="picked" class="max-w-full font-display [overflow-wrap:anywhere] text-xl font-bold tracking-tight text-fg">
+						Drop a video or tap to choose
+					</span>
+					<span id="picked-meta" class="hidden items-center gap-1.5 text-sm text-muted">
+						@icon("file", "")
+						<span id="picked-size"></span>
+						<span aria-hidden="true" class="mx-1 h-1 w-1 rounded-full bg-line"></span>
+						Tap to change
+					</span>
+				</span>
+			</label>
+			<input id="file" type="file" accept="video/*" class="sr-only"/>
+			<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+				<div class="field">
+					<select id="expires" name="expires" class="input peer pl-11">
+						<option value="24h">24 hours</option>
+						<option value="7d" selected>7 days</option>
+						<option value="30d">30 days</option>
+						<option value="never">Never</option>
+					</select>
+					<label class="float-label left-11" for="expires">Expires</label>
+					@icon("clock", "pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted")
+				</div>
+				<div class="field">
+					<select id="quality" name="quality" class="input peer pl-11">
+						<option value="high">High</option>
+						<option value="balanced" selected>Balanced</option>
+						<option value="small">Small file</option>
+					</select>
+					<label class="float-label left-11" for="quality">Quality</label>
+					@icon("sliders", "pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted")
+				</div>
+				<div class="field">
+					<select id="visibility" name="visibility" class="input peer pl-11">
+						<option value="public" selected>Public link</option>
+						<option value="private">Private</option>
+					</select>
+					<label class="float-label left-11" for="visibility">Visibility</label>
+					@icon("eye", "pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted")
+				</div>
+			</div>
+			<div id="progress" class="hidden" aria-live="polite">
+				<div class="mb-2 flex justify-between text-sm">
+					<span id="status" class="text-muted">Uploading…</span>
+					<span id="pct" class="font-semibold tabular-nums text-amber">0%</span>
+				</div>
+				<div class="h-1.5 overflow-hidden rounded-full bg-line">
+					<div id="bar" class="h-full w-0 rounded-full bg-amber transition-[width] duration-150"></div>
+				</div>
+			</div>
+			<p id="error" class="alert hidden" role="alert"></p>
+			<button id="go" class="btn btn-primary btn-lg" disabled>
+				@icon("upload", "")
+				<span id="go-label">Upload</span>
+			</button>
+			@UsageMeter(u)
+		</form>
+	</div>
+	<script>
+		(() => {
+			const $ = id => document.getElementById(id)
+			const input = $('file'), drop = $('drop'), form = $('form'), go = $('go')
+			let file = null
+			const fmt = n => n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB'
+			const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+			function pick(f) {
+				if (!f) return
+				if (!f.type.startsWith('video/') && f.type !== '') return showError('That doesn’t look like a video file.')
+				file = f
+				$('picked').textContent = f.name
+				$('picked-size').textContent = fmt(f.size)
+				$('picked-meta').classList.replace('hidden', 'flex')
+				go.disabled = false
+				$('error').classList.add('hidden')
+			}
+			function showError(msg) { const e = $('error'); e.textContent = msg; e.classList.remove('hidden') }
+
+			input.onchange = () => pick(input.files[0])
+			;['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('!ring-2', '!ring-amber') }))
+			;['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('!ring-2', '!ring-amber') }))
+			drop.addEventListener('drop', e => pick(e.dataTransfer.files[0]))
+
+			async function post(url, body) {
+				const r = await fetch(url, { method: 'POST', body })
+				if (!r.ok) throw new Error((await r.text()).trim() || r.statusText)
+				return r
+			}
+
+			// XHR rather than fetch: only XHR reports upload progress
+			const sendChunk = (id, i, blob, onProgress) => new Promise((resolve, reject) => {
+				const x = new XMLHttpRequest()
+				x.open('POST', `/upload/chunk?id=${id}&index=${i}`)
+				x.upload.onprogress = e => onProgress(e.loaded)
+				x.onload = () => x.status < 300 ? resolve() : reject(new Error(x.responseText.trim() || 'Upload failed (' + x.status + ')'))
+				x.onerror = () => reject(new Error('Network error'))
+				x.send(blob)
+			})
+
+			function progress(done) {
+				const p = Math.min(100, Math.floor(done / file.size * 100))
+				$('bar').style.width = p + '%'
+				$('pct').textContent = p + '%'
+			}
+
+			form.onsubmit = async e => {
+				e.preventDefault()
+				if (!file) return
+				go.disabled = true
+				$('go-label').textContent = 'Uploading…'
+				$('error').classList.add('hidden')
+				$('progress').classList.remove('hidden')
+				$('status').textContent = 'Uploading…'
+				progress(0)
+				try {
+					const fd = new FormData(form)
+					fd.set('filename', file.name)
+					fd.set('size', file.size)
+					const { id, chunk } = await (await post('/upload/init', fd)).json()
+					for (let i = 0, off = 0; off < file.size; i++, off += chunk) {
+						const blob = file.slice(off, off + chunk)
+						for (let tries = 0; ; tries++) {
+							try { await sendChunk(id, i, blob, loaded => progress(off + loaded)); break }
+							catch (err) { if (tries >= 3) throw err; await sleep(1000 * (tries + 1)) }
+						}
+						progress(off + blob.size)
+					}
+					$('status').textContent = 'Finishing…'
+					const { url } = await (await post('/upload/complete', new URLSearchParams({ id }))).json()
+					$('status').textContent = 'Copying link…'
+					// may be refused after a long upload (no recent click); the watch page still has a Copy link button
+					const copied = await copyText(location.origin + url).catch(() => false)
+					location.href = url + (copied ? '#copied' : '')
+				} catch (err) {
+					showError(err.message)
+					$('progress').classList.add('hidden')
+					go.disabled = false
+					$('go-label').textContent = 'Try again'
+				}
+			}
+		})()
+	</script>
+}
