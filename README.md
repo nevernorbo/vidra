@@ -74,6 +74,8 @@ To click through the UI locally, run `docker compose --profile dev up --watch vi
 
 Or with Go 1.26+ installed: `ADMIN_USER=admin ADMIN_PASSWORD=password123 go run .`. This needs `ffmpeg` and `ffprobe` on your `PATH`, and it stores data in `./data`.
 
+Styles are Tailwind, compiled ahead of time into `static/app.css` and embedded in the binary. After changing classes in `templates/` or `templates/app.css`, run `go generate` (needs Node) and commit the result. Docker builds regenerate it anyway.
+
 ## Limitations
 
 - No login rate limiting and no CSRF tokens beyond `SameSite=Lax` cookies. This is fine for a small private instance, but add both before exposing it more widely.

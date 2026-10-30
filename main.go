@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"embed"
 	"encoding/hex"
@@ -29,6 +30,15 @@ const (
 //go:embed templates/*.html
 var tplFS embed.FS
 
+// Compiled ahead of time: the browser must have the styles before first paint, or every navigation flashes unstyled.
+//
+//go:generate npx -y tailwindcss@3.4.16 -c tailwind.config.js -i templates/app.css -o static/app.css --minify
+//go:embed static/app.css
+var appCSS []byte
+
+// cssVersion busts the browser cache whenever the stylesheet changes, so it can be cached forever.
+var cssVersion = fmt.Sprintf("%x", sha256.Sum256(appCSS))[:12]
+
 var (
 	db      *sql.DB
 	dataDir string
@@ -37,6 +47,7 @@ var (
 )
 
 var funcs = template.FuncMap{
+	"asset": func(path string) string { return path + "?v=" + cssVersion },
 	"bytes": fmtBytes,
 	"expires": func(t int64) string {
 		if t == 0 {
@@ -105,6 +116,11 @@ func setup(dir string) http.Handler {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /app.css", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		w.Write(appCSS)
+	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		if userFrom(r) != nil {

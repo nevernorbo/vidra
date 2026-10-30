@@ -1,0 +1,37 @@
+/* Tailwind source. Build: go generate (writes static/app.css, which is embedded in the binary). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :focus-visible { @apply outline-none ring-2 ring-amber/80 ring-offset-2 ring-offset-ink; }
+  h1 { font-variation-settings: 'opsz' 96; }
+}
+@layer components {
+  .btn { @apply inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-panel px-4 text-sm font-medium text-fg ring-1 ring-inset ring-line transition hover:bg-line disabled:pointer-events-none disabled:opacity-40; }
+  .btn-primary { @apply bg-amber font-semibold text-ink ring-0 hover:bg-amber-hi; }
+  .btn-lg { @apply h-12 w-full text-[15px]; }
+  .icon-btn { @apply grid h-8 w-8 place-items-center rounded-full text-muted transition hover:bg-line hover:text-fg; }
+  .ico { @apply h-4 w-4 shrink-0 fill-none stroke-current; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .menu-item { @apply flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition hover:bg-line; }
+  .badge { @apply rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+  .icon-btn svg { @apply h-[18px] w-[18px] fill-none stroke-current; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  /* floating label: the input needs class "peer" and placeholder=" ", the label must follow it */
+  .field { @apply relative; }
+  .input { @apply h-14 w-full min-w-0 appearance-none rounded-xl border-0 bg-panel px-4 pb-1.5 pt-6 text-base text-fg ring-1 ring-inset ring-line transition placeholder:text-transparent autofill:shadow-[inset_0_0_0_1000px_#1F1A26] autofill:[-webkit-text-fill-color:#EDE7F2] focus:outline-none focus:ring-2 focus:ring-amber sm:text-[15px]; }
+  .select-sm { @apply h-9 cursor-pointer appearance-none rounded-full border-0 bg-panel bg-[length:1rem] bg-[right_0.6rem_center] bg-no-repeat py-0 pl-3.5 pr-8 text-sm text-fg ring-1 ring-inset ring-line transition hover:bg-line focus:outline-none focus:ring-2 focus:ring-amber; }
+  select.input { @apply cursor-pointer bg-[length:1.1rem] bg-[right_0.75rem_center] bg-no-repeat pr-9; }
+  select.input, .select-sm { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23968CA3'%3E%3Cpath d='M5.3 7.3a1 1 0 011.4 0L10 10.6l3.3-3.3a1 1 0 111.4 1.4l-4 4a1 1 0 01-1.4 0l-4-4a1 1 0 010-1.4z'/%3E%3C/svg%3E"); }
+  .float-label { @apply pointer-events-none absolute left-4 top-2 origin-left text-xs text-muted transition-all duration-150 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-amber motion-reduce:transition-none; }
+  .alert { @apply rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger ring-1 ring-inset ring-danger/25; }
+  .nav-link { @apply rounded-full px-2.5 py-1.5 sm:px-3 text-muted transition hover:text-fg; }
+  .nav-link[aria-current] { @apply bg-panel text-fg ring-1 ring-inset ring-line; }
+  .page-title { @apply font-display text-4xl font-extrabold tracking-[-0.03em] text-fg sm:text-5xl; }
+  .page-sub { @apply mt-2 text-[15px] text-muted; }
+  .btn.htmx-request, .icon-btn.htmx-request { @apply pointer-events-none opacity-50; }
+}
+/* film sprocket holes along the top and bottom edge of the drop zone */
+.filmstrip { background:
+  radial-gradient(circle at 50% 50%, theme(colors.ink) 0 4px, transparent 4.5px) top 10px left 0 / 22px 8px repeat-x,
+  radial-gradient(circle at 50% 50%, theme(colors.ink) 0 4px, transparent 4.5px) bottom 10px left 0 / 22px 8px repeat-x,
+  theme(colors.panel); }
