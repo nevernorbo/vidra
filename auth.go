@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -34,8 +36,13 @@ func sessions(next http.Handler) http.Handler {
 			u := &User{}
 			err := db.QueryRow(`SELECT u.id, u.username, u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>?`,
 				c.Value, now()).Scan(&u.ID, &u.Name, &u.Role)
-			if err == nil {
+			switch {
+			case err == nil:
 				r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, u))
+			case !errors.Is(err, sql.ErrNoRows): // unknown or expired cookies are fine; anything else must not look like a logout
+				log.Println("load session:", err)
+				http.Error(w, "Vidra can’t read its database right now. Ask the admin to check the server logs.", http.StatusInternalServerError)
+				return
 			}
 		}
 		next.ServeHTTP(w, r)

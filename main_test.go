@@ -166,3 +166,38 @@ func TestRoles(t *testing.T) {
 		t.Fatalf("promoted bob GET /settings = %d, want 200", code)
 	}
 }
+
+func TestSharedWithMe(t *testing.T) {
+	t.Setenv("ADMIN_USER", "admin")
+	t.Setenv("ADMIN_PASSWORD", "password123")
+	srv := httptest.NewServer(setup(t.TempDir()))
+	defer srv.Close()
+	db.Exec(`INSERT INTO users(id, username, pass_hash, created_at) VALUES(50, 'bob', 'x', 0)`)
+	for _, v := range []struct{ id, owner, vis string }{{"mine", "admin", "public"}, {"bobs", "bob", "public"}, {"bobs-private", "bob", "private"}} {
+		db.Exec(`INSERT INTO videos(id, user_id, title, file_size, visibility, status, quality, created_at) VALUES(?, (SELECT id FROM users WHERE username=?), ?, 0, ?, 'ready', 'balanced', 0)`,
+			v.id, v.owner, "title-"+v.id, v.vis)
+	}
+	jar, _ := cookiejar.New(nil)
+	c := &http.Client{Jar: jar}
+	c.PostForm(srv.URL+"/login", url.Values{"username": {"admin"}, "password": {"password123"}})
+	get := func(path string) string {
+		r, err := c.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Body.Close()
+		b, _ := io.ReadAll(r.Body)
+		return string(b)
+	}
+	get("/v/mine") // own videos are not "shared"
+	get("/v/bobs")
+	db.Exec(`INSERT INTO opened(user_id, video_id, opened_at) VALUES((SELECT id FROM users WHERE username='admin'), 'bobs-private', 0)`) // opened before bob made it private
+
+	shared, mine := get("/videos?shared"), get("/videos")
+	if !strings.Contains(shared, "title-bobs<") || strings.Contains(shared, "title-mine") || strings.Contains(shared, "title-bobs-private") {
+		t.Fatalf("shared list should hold only bob's public video:\n%s", shared)
+	}
+	if !strings.Contains(mine, "title-mine") || strings.Contains(mine, "title-bobs") {
+		t.Fatal("own list should hold only own videos")
+	}
+}

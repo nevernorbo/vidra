@@ -6,12 +6,21 @@
     <a href="/upload" class="btn btn-primary">Upload</a>
   </div>
 </div>
+<nav class="mt-6 inline-flex rounded-full bg-panel p-1 text-sm font-medium ring-1 ring-inset ring-line" aria-label="Show">
+  <a href="/videos" class="rounded-full px-4 py-1.5 transition {{if .Shared}}text-muted hover:text-fg{{else}}bg-line text-fg{{end}}" {{if not .Shared}}aria-current="page"{{end}}>My videos</a>
+  <a href="/videos?shared" class="rounded-full px-4 py-1.5 transition {{if .Shared}}bg-line text-fg{{else}}text-muted hover:text-fg{{end}}" {{if .Shared}}aria-current="page"{{end}}>Shared with me</a>
+</nav>
 {{if .Videos}}
-<div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+<div class="mt-8 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
   {{range .Videos}}{{template "card" .}}{{end}}
 </div>
+{{else if .Shared}}
+<div class="filmstrip mt-8 rounded-2xl px-6 py-20 text-center">
+  <p class="font-display text-2xl font-bold tracking-tight">Nothing shared with you yet</p>
+  <p class="mt-2 text-sm text-muted">Videos you open from someone else’s link show up here.</p>
+</div>
 {{else}}
-<a href="/upload" class="filmstrip mt-10 block rounded-2xl px-6 py-20 text-center transition hover:ring-1 hover:ring-amber/50">
+<a href="/upload" class="filmstrip mt-8 block rounded-2xl px-6 py-20 text-center transition hover:ring-1 hover:ring-amber/50">
   <span class="font-display text-2xl font-bold tracking-tight">No clips yet</span>
   <span class="mt-2 block text-sm text-amber">Upload your first one</span>
 </a>

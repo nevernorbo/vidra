@@ -12,12 +12,13 @@ type Video struct {
 	ID, Title, Visibility, Status      string
 	UserID, Size, CreatedAt, ExpiresAt int64
 	Width, Height                      int
+	By                                 string // uploader's name, set only in the shared-with-me list
 }
 
 const videoCols = `id, user_id, title, file_size, visibility, status, width, height, created_at, expires_at`
 
-func (v *Video) scan(s interface{ Scan(...any) error }) error {
-	return s.Scan(&v.ID, &v.UserID, &v.Title, &v.Size, &v.Visibility, &v.Status, &v.Width, &v.Height, &v.CreatedAt, &v.ExpiresAt)
+func (v *Video) scan(s interface{ Scan(...any) error }, extra ...any) error {
+	return s.Scan(append([]any{&v.ID, &v.UserID, &v.Title, &v.Size, &v.Visibility, &v.Status, &v.Width, &v.Height, &v.CreatedAt, &v.ExpiresAt}, extra...)...)
 }
 
 func getVideo(id string) (*Video, error) {
@@ -50,20 +51,30 @@ func deleteVideo(id string) {
 
 func library(w http.ResponseWriter, r *http.Request) {
 	u := userFrom(r)
+	shared := r.URL.Query().Has("shared")
+	q, args := `SELECT `+videoCols+`, '' FROM videos WHERE user_id=? ORDER BY created_at DESC`, []any{u.ID}
+	if shared {
+		// other people's videos this user opened from a link, while they can still be watched
+		q = `SELECT v.` + strings.ReplaceAll(videoCols, ", ", ", v.") + `, u.username FROM opened o
+			JOIN videos v ON v.id=o.video_id JOIN users u ON u.id=v.user_id
+			WHERE o.user_id=? AND v.user_id<>o.user_id AND v.visibility='public' AND v.status='ready' AND (v.expires_at=0 OR v.expires_at>?)
+			ORDER BY o.opened_at DESC`
+		args = []any{u.ID, now()}
+	}
 	var list []*Video
-	rows, err := db.Query(`SELECT `+videoCols+` FROM videos WHERE user_id=? ORDER BY created_at DESC`, u.ID)
+	rows, err := db.Query(q, args...)
 	if err != nil {
 		log.Println("library", err)
 	} else {
 		for rows.Next() {
 			v := &Video{}
-			if v.scan(rows) == nil {
+			if v.scan(rows, &v.By) == nil {
 				list = append(list, v)
 			}
 		}
 		rows.Close()
 	}
-	render(w, r, "videos", map[string]any{"Title": "Library", "Videos": list, "Usage": usage(u.ID)})
+	render(w, r, "videos", map[string]any{"Title": "Library", "Videos": list, "Usage": usage(u.ID), "Shared": shared})
 }
 
 func card(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +137,9 @@ func watch(w http.ResponseWriter, r *http.Request) {
 	if err != nil || !v.visibleTo(u) {
 		http.NotFound(w, r)
 		return
+	}
+	if u != nil && u.ID != v.UserID {
+		db.Exec(`INSERT INTO opened(user_id, video_id, opened_at) VALUES(?,?,?) ON CONFLICT DO UPDATE SET opened_at=excluded.opened_at`, u.ID, v.ID, now())
 	}
 	render(w, r, "watch", map[string]any{"Title": v.Title, "Video": v, "Owner": u != nil && u.ID == v.UserID})
 }
