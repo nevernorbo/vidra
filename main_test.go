@@ -6,10 +6,54 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
+
+// Transcodes real files, so it needs ffmpeg and is skipped without it.
+func TestTranscodeRejectsCraftedFiles(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed")
+	}
+	t.Setenv("ADMIN_USER", "admin")
+	t.Setenv("ADMIN_PASSWORD", "password123")
+	setup(t.TempDir())
+	clip := path("raw", "clip.mp4")
+	if out, err := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=2:size=64x64:rate=10", "-pix_fmt", "yuv420p", clip).CombinedOutput(); err != nil {
+		t.Fatalf("making test clip: %v\n%s", err, out)
+	}
+	clipBytes, _ := os.ReadFile(clip)
+	status := func(id string, raw []byte) string {
+		db.Exec(`INSERT INTO videos(id, user_id, title, file_size, visibility, status, quality, created_at) VALUES(?, 1, 't', 0, 'public', 'processing', 'balanced', 0)`, id)
+		os.WriteFile(path("raw", id+".tmp"), raw, 0o644)
+		transcode(id)
+		var s string
+		db.QueryRow(`SELECT status FROM videos WHERE id=?`, id).Scan(&s)
+		return s
+	}
+
+	if s := status("good", clipBytes); s != "ready" {
+		t.Fatalf("real video: status %s", s)
+	}
+	// a playlist that pulls in another file on the server, which ffmpeg follows unless restricted
+	playlist := []byte("ffconcat version 1.0\nfile 'clip.mp4'\n")
+	os.WriteFile(path("raw", "playlist.tmp"), playlist, 0o644)
+	if out, err := exec.Command("ffprobe", append(untrusted, path("raw", "playlist.tmp"))...).CombinedOutput(); err == nil {
+		t.Fatalf("ffprobe opened a concat playlist despite the whitelist:\n%s", out)
+	}
+	if s := status("concat", playlist); s != "failed" {
+		t.Fatalf("concat playlist: status %s", s)
+	}
+	defer func(d time.Duration) { maxDuration = d }(maxDuration)
+	maxDuration = time.Second
+	if s := status("long", clipBytes); s != "failed" {
+		t.Fatalf("over-long video: status %s", s)
+	}
+}
 
 // Walks the invite and quota rules end to end (no ffmpeg needed).
 func TestInviteAndQuota(t *testing.T) {

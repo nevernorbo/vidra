@@ -7,7 +7,7 @@ Built with Go, HTMX, SQLite and ffmpeg. It runs as a single container and is des
 ## Features
 
 - **Chunked uploads**: files are sliced into 5 MB pieces in the browser, so large videos get past Cloudflare's 100 MB request limit. Failed chunks are retried automatically.
-- **Automatic transcoding**: everything is converted to H.264 + AAC MP4 with `+faststart`, and a JPEG thumbnail is generated. Raw uploads are deleted afterwards.
+- **Automatic transcoding**: everything is converted to H.264 + AAC MP4 with `+faststart`, and a JPEG thumbnail is generated. Raw uploads are deleted afterwards. Videos can be up to an hour long, and ffmpeg only accepts real video containers from local files, so a crafted playlist can't make it read other files or fetch URLs.
 - **Discord embeds**: `/v/{uuid}` renders `og:video`, `og:image` and friends server-side.
 - **Invite-only**: logged-in users generate single-use invite links that expire after 7 days.
 - **Storage quota**: 2 GB per user, counted from SQLite. Uploads that would exceed it are rejected up front.

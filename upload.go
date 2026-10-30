@@ -167,6 +167,29 @@ func run(name string, args ...string) error {
 	return nil
 }
 
+// maxDuration caps uploads, so one file can't hold the single transcode worker for hours.
+var maxDuration = time.Hour
+
+// untrusted limits how ffmpeg reads an upload. It picks the format from the contents, not the
+// extension, so a crafted playlist (HLS, concat) could otherwise fetch URLs or read other local files.
+var untrusted = []string{"-protocol_whitelist", "file", "-format_whitelist", "mov,matroska,avi,mpegts,flv,asf,mpeg,ogg"}
+
+// checkDuration rejects uploads that are too long, or whose length ffprobe can't tell.
+func checkDuration(raw string) error {
+	b, err := exec.Command("ffprobe", append(untrusted, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", raw)...).Output()
+	if err != nil {
+		return fmt.Errorf("ffprobe: %w", err)
+	}
+	secs, err := strconv.ParseFloat(strings.TrimSpace(string(b)), 64)
+	if err != nil || secs <= 0 {
+		return fmt.Errorf("unknown duration %q", strings.TrimSpace(string(b)))
+	}
+	if d := time.Duration(secs * float64(time.Second)); d > maxDuration {
+		return fmt.Errorf("too long: %s", d.Round(time.Second))
+	}
+	return nil
+}
+
 func transcode(id string) {
 	raw, out, thumb := path("raw", id+".tmp"), path("videos", id+".mp4"), path("thumbs", id+".jpg")
 	var quality string
@@ -174,9 +197,15 @@ func transcode(id string) {
 		os.Remove(raw) // deleted while queued
 		return
 	}
-	// even dimensions + yuv420p: libx264 rejects odd sizes, and browsers/Discord need yuv420p
-	err := run("ffmpeg", "-y", "-i", raw, "-c:v", "libx264", "-preset", "fast", "-crf", crfs[quality],
-		"-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", out)
+	err := checkDuration(raw)
+	if err == nil {
+		// -t backs up checkDuration when a file's header understates its length.
+		// even dimensions + yuv420p: libx264 rejects odd sizes, and browsers/Discord need yuv420p
+		args := append(append([]string{"-y"}, untrusted...), "-i", raw, "-t", fmt.Sprint(maxDuration.Seconds()),
+			"-c:v", "libx264", "-preset", "fast", "-crf", crfs[quality], "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+			"-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", out)
+		err = run("ffmpeg", args...)
+	}
 	if err == nil {
 		err = run("ffmpeg", "-y", "-i", out, "-vf", "thumbnail,scale=640:-2", "-frames:v", "1", thumb)
 	}
