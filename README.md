@@ -70,6 +70,8 @@ There is no need for a local Go install. Use the container:
 docker run --rm -v "$PWD":/src -w /src golang:1.26-alpine go test ./...
 ```
 
+To click through the UI locally, run `docker compose --profile dev up --watch vidra-dev` and open `http://localhost:8087` (log in as `admin` / `password123`). It rebuilds on every file change and keeps its data in `./data`.
+
 Or with Go 1.26+ installed: `ADMIN_USER=admin ADMIN_PASSWORD=password123 go run .`. This needs `ffmpeg` and `ffprobe` on your `PATH`, and it stores data in `./data`.
 
 ## Limitations

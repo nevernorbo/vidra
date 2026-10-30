@@ -23,6 +23,24 @@ services:
       - homelab-network
       - cloudflare-network
 
+  # Local UI testing: docker compose --profile dev up --watch vidra-dev  ->  http://localhost:8087 (admin / password123)
+  vidra-dev:
+    profiles: [dev]
+    build: .
+    environment:
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=password123
+    volumes:
+      - ./data:/data
+    ports:
+      - "8087:8080"
+    # Templates are embedded in the binary, so any source change needs a rebuild
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+          ignore: [data/]
+
 networks:
   homelab-network:
     name: ${DOCKER_NETWORK:-homelab-network}
