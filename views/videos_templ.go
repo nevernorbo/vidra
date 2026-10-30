@@ -157,6 +157,10 @@ func Library(videos []*Video, u Usage, shared bool) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<script>\n\t\t// coming Back from a video restores this page from the browser's cache, missing renames and deletes made there\n\t\taddEventListener('pageshow', e => e.persisted && location.reload())\n\t</script>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
 		return nil
 	})
 }

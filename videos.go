@@ -70,6 +70,7 @@ func library(w http.ResponseWriter, r *http.Request) {
 		}
 		rows.Close()
 	}
+	w.Header().Set("Cache-Control", "no-store") // Back must refetch, so changes made on the watch page show up
 	render(w, r, "Library", nil, views.Library(list, usage(u.ID), shared))
 }
 

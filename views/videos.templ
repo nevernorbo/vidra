@@ -44,4 +44,8 @@ templ Library(videos []*Video, u Usage, shared bool) {
 			<span class="mt-2 block text-sm text-amber">Upload your first one</span>
 		</a>
 	}
+	<script>
+		// coming Back from a video restores this page from the browser's cache, missing renames and deletes made there
+		addEventListener('pageshow', e => e.persisted && location.reload())
+	</script>
 }
