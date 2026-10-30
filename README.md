@@ -81,3 +81,7 @@ Pages are [templ](https://templ.guide) components in `views/*.templ`, compiled t
 - No login rate limiting and no CSRF tokens beyond `SameSite=Lax` cookies. This is fine for a small private instance, but add both before exposing it more widely.
 - The quota counts the transcoded size, which can be larger than the original, so a user can end up slightly over 2 GB.
 - Tailwind and HTMX load from CDNs, so the UI needs internet access in the browser.
+
+## Credits
+
+The mascot in `static/icon.svg` is the Go gopher in an otter hood. The Go gopher was designed by [Renée French](https://reneefrench.blogspot.com/) and is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

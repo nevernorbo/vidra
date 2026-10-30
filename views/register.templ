@@ -1,5 +1,24 @@
 package views
 
+// InviteHead is the link preview Discord and others show for an invite. by may be empty if the inviter is gone.
+templ InviteHead(by string, expiresAt int64, url, image string) {
+	<meta property="og:site_name" content="vidra"/>
+	<meta property="og:type" content="website"/>
+	<meta property="og:title" content={ inviteTitle(by) }/>
+	<meta property="og:description" content={ "Create an account to upload videos and share them with a link. This invite works once and expires in " + duration(expiresAt) + "." }/>
+	<meta property="og:url" content={ url }/>
+	<meta property="og:image" content={ image }/>
+	<meta property="og:image:alt" content="vidra logo"/>
+	<meta name="twitter:card" content="summary"/>
+}
+
+func inviteTitle(by string) string {
+	if by == "" {
+		return "You’re invited to vidra"
+	}
+	return by + " invited you to vidra"
+}
+
 // Register is the sign-up form for an invite token; invalid replaces the form with an explanation.
 templ Register(token, username, errMsg string, invalid bool) {
 	<div class="mx-auto max-w-sm pt-8 sm:pt-16">

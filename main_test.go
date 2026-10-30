@@ -106,6 +106,38 @@ func TestRename(t *testing.T) {
 	}
 }
 
+// An invite link unfurls in Discord with who sent it; a used or bogus one shows no preview.
+func TestInvitePreview(t *testing.T) {
+	t.Setenv("ADMIN_USER", "admin")
+	t.Setenv("ADMIN_PASSWORD", "password123")
+	srv := httptest.NewServer(setup(t.TempDir()))
+	defer srv.Close()
+	db.Exec(`INSERT INTO invites(token, created_by, created_at, expires_at) VALUES('tok', (SELECT id FROM users WHERE username='admin'), ?, ?)`,
+		now(), now()+int64(inviteTTL.Seconds()))
+
+	get := func(path string) (int, string) {
+		r, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Body.Close()
+		b, _ := io.ReadAll(r.Body)
+		return r.StatusCode, string(b)
+	}
+	code, html := get("/register?token=tok")
+	for _, want := range []string{`og:title" content="admin invited you to vidra"`, `expires in 7 days.`, `og:image" content="` + srv.URL + `/og.png"`} {
+		if code != 200 || !strings.Contains(html, want) {
+			t.Fatalf("invite page = %d, missing %s", code, want)
+		}
+	}
+	if code, html := get("/register?token=bogus"); code != 403 || strings.Contains(html, "og:title") {
+		t.Fatalf("bogus invite = %d, has preview: %v", code, strings.Contains(html, "og:title"))
+	}
+	if code, img := get("/og.png"); code != 200 || !strings.HasPrefix(img, "\x89PNG") {
+		t.Fatalf("og.png = %d", code)
+	}
+}
+
 func TestRoles(t *testing.T) {
 	t.Setenv("ADMIN_USER", "admin")
 	t.Setenv("ADMIN_PASSWORD", "password123")

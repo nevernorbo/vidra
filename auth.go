@@ -129,11 +129,18 @@ func inviteValid(token string) bool {
 
 func registerPage(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
-	invalid := !inviteValid(token)
-	if invalid {
+	// the inviter and expiry are only for the link preview; inviteValid stays the rule for using the invite
+	var by string
+	var expiresAt int64
+	err := db.QueryRow(`SELECT COALESCE(u.username, ''), i.expires_at FROM invites i LEFT JOIN users u ON u.id=i.created_by
+		WHERE i.token=? AND i.used_by IS NULL AND i.expires_at>?`, token, now()).Scan(&by, &expiresAt)
+	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
+		render(w, r, "Create account", nil, views.Register(token, "", "", true))
+		return
 	}
-	render(w, r, "Create account", nil, views.Register(token, "", "", invalid))
+	render(w, r, "Create account", views.InviteHead(by, expiresAt, baseURL(r)+"/register?token="+token, baseURL(r)+"/og.png"),
+		views.Register(token, "", "", false))
 }
 
 func register(w http.ResponseWriter, r *http.Request) {

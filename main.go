@@ -39,6 +39,14 @@ const (
 //go:embed static/app.css
 var appCSS []byte
 
+// The mascot icon, and the same rendered as a 512px PNG for link previews (Discord can't show SVG).
+//
+//go:embed static/icon.svg
+var iconSVG []byte
+
+//go:embed static/og.png
+var ogPNG []byte
+
 // cssVersion busts the browser cache whenever the stylesheet changes, so it can be cached forever.
 var cssVersion = fmt.Sprintf("%x", sha256.Sum256(appCSS))[:12]
 
@@ -102,6 +110,16 @@ func setup(dir string) http.Handler {
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		w.Write(appCSS)
+	})
+	mux.HandleFunc("GET /icon.svg", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/svg+xml")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write(iconSVG)
+	})
+	mux.HandleFunc("GET /og.png", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write(ogPNG)
 	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {

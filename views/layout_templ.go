@@ -42,7 +42,7 @@ func Layout(title string, user *User, stylesheet string, head templ.Component) t
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F4B740'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='%2315121A'/%3E%3C/svg%3E\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"icon\" href=\"/icon.svg\" type=\"image/svg+xml\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -65,7 +65,7 @@ func Layout(title string, user *User, stylesheet string, head templ.Component) t
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"><script src=\"https://unpkg.com/htmx.org@2.0.4\"></script></head><body class=\"min-h-screen bg-ink font-sans text-fg antialiased\"><header class=\"sticky top-0 z-10 bg-ink/85 backdrop-blur-md\"><nav class=\"mx-auto flex h-16 max-w-5xl items-center gap-0.5 px-4 text-sm sm:gap-1\"><a href=\"/\" class=\"mr-auto flex items-center gap-2 font-display text-2xl font-extrabold tracking-[-0.04em] text-fg\"><svg viewBox=\"0 0 24 24\" class=\"h-5 w-5 fill-amber\"><path d=\"M7 4.5v15l12.5-7.5z\"></path></svg> <span class=\"max-[400px]:sr-only\">vidra</span></a> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"><script src=\"https://unpkg.com/htmx.org@2.0.4\"></script></head><body class=\"min-h-screen bg-ink font-sans text-fg antialiased\"><header class=\"sticky top-0 z-10 bg-ink/85 backdrop-blur-md\"><nav class=\"mx-auto flex h-16 max-w-5xl items-center gap-0.5 px-4 text-sm sm:gap-1\"><a href=\"/\" class=\"mr-auto flex items-center gap-2 font-display text-2xl font-extrabold tracking-[-0.04em] text-fg\"><img src=\"/icon.svg\" alt=\"\" class=\"h-8 w-8\"> <span class=\"max-[400px]:sr-only\">vidra</span></a> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
