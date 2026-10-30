@@ -2,48 +2,86 @@
 <html lang="en" class="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#15121A">
 <title>{{if .Title}}{{.Title}} · {{end}}vidra</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236366f1'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='white'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F4B740'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='%2315121A'/%3E%3C/svg%3E">
 {{block "head" .}}{{end}}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400;500;600&display=swap">
 <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>tailwind.config = { theme: { extend: {
+  fontFamily: { sans: ['Instrument Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'], display: ['Bricolage Grotesque', 'ui-sans-serif', 'sans-serif'] },
+  colors: { ink: '#15121A', panel: '#1F1A26', line: '#2F2838', fg: '#EDE7F2', muted: '#968CA3', amber: { DEFAULT: '#F4B740', hi: '#FFCB63' }, danger: '#F0717A' },
+} } }</script>
 <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 <style type="text/tailwindcss">
-  @layer components {
-    .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm font-medium text-zinc-100 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50; }
-    .btn-primary { @apply border-indigo-500 bg-indigo-500 text-white hover:bg-indigo-400; }
-    .btn-danger { @apply hover:border-red-500 hover:bg-red-500/20 hover:text-red-300; }
-    .input { @apply w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-base text-zinc-100 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500; }
-    .panel { @apply rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-5; }
-    .label { @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-400; }
+  @layer base {
+    :focus-visible { @apply outline-none ring-2 ring-amber/80 ring-offset-2 ring-offset-ink; }
+    h1 { font-variation-settings: 'opsz' 96; }
   }
-  .htmx-request .spinner-hide { opacity: .5 }
+  @layer components {
+    .btn { @apply inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-panel px-4 text-sm font-medium text-fg ring-1 ring-inset ring-line transition hover:bg-line disabled:pointer-events-none disabled:opacity-40; }
+    .btn-primary { @apply bg-amber font-semibold text-ink ring-0 hover:bg-amber-hi; }
+    .btn-lg { @apply h-12 w-full text-[15px]; }
+    .icon-btn { @apply grid h-8 w-8 place-items-center rounded-full text-muted transition hover:bg-line hover:text-fg; }
+    .icon-btn svg { @apply h-[18px] w-[18px] fill-none stroke-current; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+    /* floating label: the input needs class "peer" and placeholder=" ", the label must follow it */
+    .field { @apply relative; }
+    .input { @apply h-14 w-full min-w-0 appearance-none rounded-xl border-0 bg-panel px-4 pb-1.5 pt-6 text-base text-fg ring-1 ring-inset ring-line transition placeholder:text-transparent autofill:shadow-[inset_0_0_0_1000px_#1F1A26] autofill:[-webkit-text-fill-color:#EDE7F2] focus:outline-none focus:ring-2 focus:ring-amber sm:text-[15px]; }
+    select.input { @apply cursor-pointer bg-[length:1.1rem] bg-[right_0.75rem_center] bg-no-repeat pr-9;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23968CA3'%3E%3Cpath d='M5.3 7.3a1 1 0 011.4 0L10 10.6l3.3-3.3a1 1 0 111.4 1.4l-4 4a1 1 0 01-1.4 0l-4-4a1 1 0 010-1.4z'/%3E%3C/svg%3E"); }
+    .float-label { @apply pointer-events-none absolute left-4 top-2 origin-left text-xs text-muted transition-all duration-150 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-xs peer-focus:text-amber motion-reduce:transition-none; }
+    .alert { @apply rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger ring-1 ring-inset ring-danger/25; }
+    .nav-link { @apply rounded-full px-3 py-1.5 text-muted transition hover:text-fg; }
+    .nav-link[aria-current] { @apply bg-panel text-fg ring-1 ring-inset ring-line; }
+    .page-title { @apply font-display text-4xl font-extrabold tracking-[-0.03em] text-fg sm:text-5xl; }
+    .page-sub { @apply mt-2 text-[15px] text-muted; }
+  }
+  /* film sprocket holes along the top and bottom edge of the drop zone */
+  .filmstrip { background:
+    radial-gradient(circle at 50% 50%, theme(colors.ink) 0 4px, transparent 4.5px) top 10px left 0 / 22px 8px repeat-x,
+    radial-gradient(circle at 50% 50%, theme(colors.ink) 0 4px, transparent 4.5px) bottom 10px left 0 / 22px 8px repeat-x,
+    theme(colors.panel); }
 </style>
 </head>
-<body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
-<header class="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
-  <nav class="mx-auto flex h-14 max-w-5xl items-center gap-1 px-4 text-sm">
-    <a href="/" class="mr-3 flex items-center gap-2 text-base font-semibold tracking-tight">
-      <span class="grid h-7 w-7 place-items-center rounded-lg bg-indigo-500"><svg viewBox="0 0 24 24" class="h-4 w-4 fill-white"><path d="M8 5v14l11-7z"/></svg></span>vidra
+<body class="min-h-screen bg-ink font-sans text-fg antialiased">
+<header class="sticky top-0 z-10 bg-ink/85 backdrop-blur-md">
+  <nav class="mx-auto flex h-16 max-w-5xl items-center gap-1 px-4 text-sm">
+    <a href="/" class="mr-auto flex items-center gap-2 font-display text-2xl font-extrabold tracking-[-0.04em] text-fg">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-amber"><path d="M7 4.5v15l12.5-7.5z"/></svg>vidra
     </a>
     {{if .User}}
-    <a href="/upload" class="rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800 hover:text-white">Upload</a>
-    <a href="/videos" class="rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800 hover:text-white">Library</a>
-    <a href="/settings" class="rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800 hover:text-white">Invites</a>
-    <form method="post" action="/logout" class="ml-auto"><button class="rounded-lg px-2.5 py-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white" title="Signed in as {{.User.Name}}">Log out</button></form>
+    <a href="/upload" class="nav-link" {{if eq .Title "Upload"}}aria-current="page"{{end}}>Upload</a>
+    <a href="/videos" class="nav-link" {{if eq .Title "Library"}}aria-current="page"{{end}}>Library</a>
+    <a href="/settings" class="nav-link" {{if eq .Title "Settings"}}aria-current="page"{{end}}>Invites</a>
+    <form method="post" action="/logout" class="ml-1"><button class="icon-btn" title="Log out ({{.User.Name}})" aria-label="Log out"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l-5-5 5-5M5 12h11"/></svg></button></form>
     {{else}}
-    <a href="/login" class="ml-auto rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800 hover:text-white">Log in</a>
+    <a href="/login" class="nav-link">Log in</a>
     {{end}}
   </nav>
 </header>
-<main class="mx-auto max-w-5xl px-4 py-6 sm:py-8">{{template "content" .}}</main>
+<main class="mx-auto max-w-5xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-6 sm:pt-10">{{template "content" .}}</main>
+<div class="pointer-events-none fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-4">
+  <p id="toast" role="status" aria-live="polite" class="flex translate-y-3 items-center gap-2 rounded-full bg-fg px-4 py-2.5 text-sm font-medium text-ink opacity-0 shadow-lg shadow-black/40 transition duration-200 motion-reduce:transition-none"></p>
+</div>
 <script>
-async function copyText(t, b) {
+function toast(msg) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.classList.remove('opacity-0', 'translate-y-3')
+  clearTimeout(t.timer)
+  t.timer = setTimeout(() => t.classList.add('opacity-0', 'translate-y-3'), 2500)
+}
+async function copyText(t, msg = 'Link copied') {
+  let ok = true
   try { await navigator.clipboard.writeText(t) } catch {
-    const a = document.createElement('textarea'); a.value = t; document.body.append(a); a.select(); document.execCommand('copy'); a.remove()
+    const a = document.createElement('textarea'); a.value = t; document.body.append(a); a.select(); ok = document.execCommand('copy'); a.remove()
   }
-  if (b) { const o = b.dataset.label || (b.dataset.label = b.textContent); b.textContent = 'Copied!'; setTimeout(() => b.textContent = o, 1500) }
+  toast(ok ? msg : 'Couldn’t copy the link')
+  return ok
 }
 </script>
 </body>

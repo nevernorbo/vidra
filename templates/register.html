@@ -1,16 +1,15 @@
 {{define "content"}}
-<div class="mx-auto max-w-sm pt-6 sm:pt-12">
-  <h1 class="mb-1 text-2xl font-semibold tracking-tight">Create your account</h1>
+<div class="mx-auto max-w-sm pt-8 sm:pt-16">
+  <h1 class="page-title">Create your account</h1>
   {{if .Invalid}}
-  <p class="mt-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">This invite is invalid, used or expired. Ask for a new one.</p>
+  <p class="alert mt-8">This invite is invalid, used or expired. Ask for a new one.</p>
   {{else}}
-  <p class="mb-6 text-sm text-zinc-400">You've been invited to vidra.</p>
-  <form method="post" action="/register" class="panel space-y-4">
-    {{if .Error}}<p class="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{{.Error}}</p>{{end}}
+  <form method="post" action="/register" class="mt-8 space-y-4">
+    {{if .Error}}<p class="alert">{{.Error}}</p>{{end}}
     <input type="hidden" name="token" value="{{.Token}}">
-    <div><label class="label" for="u">Username</label><input id="u" name="username" value="{{.Username}}" class="input" autocomplete="username" autocapitalize="none" required autofocus></div>
-    <div><label class="label" for="p">Password</label><input id="p" name="password" type="password" minlength="8" maxlength="72" class="input" autocomplete="new-password" required><p class="mt-1 text-xs text-zinc-500">At least 8 characters.</p></div>
-    <button class="btn btn-primary w-full !py-2.5">Create account</button>
+    <div class="field"><input id="u" name="username" value="{{.Username}}" class="input peer" placeholder=" " autocomplete="username" autocapitalize="none" required autofocus><label class="float-label" for="u">Username</label></div>
+    <div><div class="field"><input id="p" name="password" type="password" minlength="8" maxlength="72" class="input peer" placeholder=" " autocomplete="new-password" required aria-describedby="p-hint"><label class="float-label" for="p">Password</label></div><p id="p-hint" class="mt-2 px-4 text-xs text-muted">At least 8 characters</p></div>
+    <button class="btn btn-primary btn-lg !mt-6">Create account</button>
   </form>
   {{end}}
 </div>

@@ -1,17 +1,19 @@
 {{define "content"}}
-<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
-  <div>
-    <h1 class="text-2xl font-semibold tracking-tight">Library</h1>
-    <p class="text-sm text-zinc-400">Your uploads. Public videos can be opened by anyone with the link.</p>
+<div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+  <h1 class="page-title">Library</h1>
+  <div class="flex w-full items-center gap-4 sm:w-auto">
+    <div class="flex-1 sm:w-56">{{template "usage" .Usage}}</div>
+    <a href="/upload" class="btn btn-primary">Upload</a>
   </div>
-  <a href="/upload" class="btn btn-primary">Upload</a>
 </div>
-<div class="panel mb-6">{{template "usage" .Usage}}</div>
 {{if .Videos}}
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+<div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
   {{range .Videos}}{{template "card" .}}{{end}}
 </div>
 {{else}}
-<div class="panel py-12 text-center text-zinc-400">Nothing here yet. <a href="/upload" class="text-indigo-400 hover:underline">Upload your first clip</a>.</div>
+<a href="/upload" class="filmstrip mt-10 block rounded-2xl px-6 py-20 text-center transition hover:ring-1 hover:ring-amber/50">
+  <span class="font-display text-2xl font-bold tracking-tight">No clips yet</span>
+  <span class="mt-2 block text-sm text-amber">Upload your first one</span>
+</a>
 {{end}}
 {{end}}

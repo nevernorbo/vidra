@@ -1,45 +1,46 @@
-{{define "usage"}}<div id="usage" {{if .OOB}}hx-swap-oob="true"{{end}}>
-  <div class="mb-1.5 flex items-baseline justify-between text-sm">
-    <span class="text-zinc-400">Storage</span>
-    <span class="font-medium">{{bytes .Used}} <span class="text-zinc-500">/ {{bytes .Quota}} used</span></span>
+{{define "usage"}}<div id="usage" {{if .OOB}}hx-swap-oob="true"{{end}} class="flex items-center gap-3 text-xs text-muted">
+  <div class="h-1 flex-1 overflow-hidden rounded-full bg-line" role="progressbar" aria-label="Storage used" aria-valuenow="{{.Pct}}" aria-valuemin="0" aria-valuemax="100">
+    <div class="h-full rounded-full {{if ge .Pct 90}}bg-danger{{else}}bg-amber{{end}}" style="width: {{.Pct}}%"></div>
   </div>
-  <div class="h-2 overflow-hidden rounded-full bg-zinc-800">
-    <div class="h-full rounded-full {{if ge .Pct 90}}bg-red-500{{else}}bg-indigo-500{{end}}" style="width: {{.Pct}}%"></div>
-  </div>
+  <span class="shrink-0 tabular-nums"><span class="text-fg">{{bytes .Used}}</span> of {{bytes .Quota}}</span>
 </div>{{end}}
 
-{{define "card"}}<article id="v-{{.ID}}" class="flex flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/60"
+{{define "card"}}<article id="v-{{.ID}}" class="group min-w-0"
   {{if eq .Status "processing"}}hx-get="/videos/{{.ID}}/card" hx-trigger="every 3s" hx-swap="outerHTML"{{end}}>
-  <a href="/v/{{.ID}}" class="relative block aspect-video bg-zinc-800">
+  <a href="/v/{{.ID}}" class="relative block aspect-video overflow-hidden rounded-xl bg-panel ring-1 ring-inset ring-line">
     {{if eq .Status "ready"}}<img src="/v/{{.ID}}/thumb.jpg" alt="" loading="lazy" class="h-full w-full object-cover">
-    {{else if eq .Status "processing"}}<span class="absolute inset-0 grid place-items-center text-sm text-zinc-400"><span class="flex items-center gap-2"><span class="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-indigo-400"></span>Processing…</span></span>
-    {{else}}<span class="absolute inset-0 grid place-items-center text-sm text-red-400">Processing failed</span>{{end}}
+    {{else if eq .Status "processing"}}<span class="absolute inset-0 grid place-items-center text-sm text-muted"><span class="flex items-center gap-2"><span class="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-amber"></span>Processing</span></span>
+    {{else}}<span class="absolute inset-0 grid place-items-center text-sm text-danger">Processing failed</span>{{end}}
+    {{if ne .Visibility "public"}}<span class="absolute left-2 top-2 rounded-md bg-ink/80 px-1.5 py-0.5 text-[11px] font-medium text-fg backdrop-blur">Private</span>{{end}}
   </a>
-  <div class="flex flex-1 flex-col gap-3 p-3.5">
-    <div>
-      <a href="/v/{{.ID}}" class="block truncate font-medium hover:text-indigo-300" title="{{.Title}}">{{.Title}}</a>
-      <p class="mt-0.5 text-xs text-zinc-500">{{if .Size}}{{bytes .Size}} · {{end}}{{date .CreatedAt}} · {{expires .ExpiresAt}}</p>
+  <div class="mt-3 flex items-start gap-2">
+    <div class="min-w-0 flex-1">
+      <a href="/v/{{.ID}}" class="block truncate text-[15px] font-medium font-display text-fg hover:text-amber" title="{{.Title}}">{{.Title}}</a>
+      <p class="mt-0.5 text-[13px] text-muted">{{date .CreatedAt}} · {{expires .ExpiresAt}}{{if .Size}} · {{bytes .Size}}{{end}}</p>
     </div>
-    <div class="mt-auto flex flex-wrap gap-2">
-      <button class="btn !px-3 !py-1.5 {{if eq .Visibility "public"}}!border-emerald-700 !text-emerald-300{{end}}" hx-post="/videos/{{.ID}}/visibility" hx-target="#v-{{.ID}}" hx-swap="outerHTML" title="Click to make {{if eq .Visibility "public"}}private{{else}}public{{end}}">{{if eq .Visibility "public"}}● Public{{else}}○ Private{{end}}</button>
-      {{if eq .Status "ready"}}<button class="btn !px-3 !py-1.5" onclick="copyText(location.origin+'/v/{{.ID}}', this)">Copy link</button>{{end}}
-      <button class="btn btn-danger ml-auto !px-3 !py-1.5" hx-delete="/videos/{{.ID}}" hx-confirm="Delete “{{.Title}}” permanently?" hx-target="#v-{{.ID}}" hx-swap="outerHTML" aria-label="Delete">Delete</button>
+    <div class="-mr-1.5 flex shrink-0">
+      {{if eq .Status "ready"}}<button class="icon-btn" onclick="copyText(location.origin+'/v/{{.ID}}')" title="Copy link" aria-label="Copy link"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg></button>
+      <a class="icon-btn" href="/v/{{.ID}}/video.mp4?download" download title="Download" aria-label="Download"><svg viewBox="0 0 24 24"><path d="M12 4v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg></a>{{end}}
+      <button class="icon-btn" hx-post="/videos/{{.ID}}/visibility" hx-target="#v-{{.ID}}" hx-swap="outerHTML" title="{{if eq .Visibility "public"}}Public · click to make private{{else}}Private · click to make public{{end}}" aria-label="{{if eq .Visibility "public"}}Make private{{else}}Make public{{end}}">
+        {{if eq .Visibility "public"}}<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        {{else}}<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A9.8 9.8 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-2.7 3.6M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7a9.7 9.7 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2"/></svg>{{end}}
+      </button>
+      <button class="icon-btn hover:!bg-danger/15 hover:!text-danger" hx-delete="/videos/{{.ID}}" hx-confirm="Delete “{{.Title}}” permanently?" hx-target="#v-{{.ID}}" hx-swap="outerHTML" title="Delete" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></button>
     </div>
   </div>
 </article>{{end}}
 
 {{define "invites"}}{{$base := .Base}}
-{{if not .Invites}}<p class="text-sm text-zinc-500">No invites yet.</p>{{end}}
-<ul class="space-y-2">
+{{if not .Invites}}<p class="py-6 text-center text-sm text-muted">No invites yet.</p>{{end}}
+<ul class="divide-y divide-line">
 {{range .Invites}}
-  <li class="rounded-xl border border-zinc-800 bg-zinc-900 p-3">
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="rounded-full px-2 py-0.5 text-xs font-medium {{if .Active}}bg-emerald-500/15 text-emerald-300{{else}}bg-zinc-800 text-zinc-400{{end}}">
-        {{if .UsedBy.Valid}}Used by {{.UsedBy.String}}{{else if .IsExpired}}Expired{{else}}Active · {{expires .ExpiresAt}}{{end}}
-      </span>
-      {{if .Active}}<button class="btn ml-auto !px-3 !py-1.5" onclick="copyText(this.dataset.url, this)" data-url="{{$base}}/register?token={{.Token}}">Copy link</button>{{end}}
+  <li class="flex items-center gap-3 py-3">
+    <span class="h-2 w-2 shrink-0 rounded-full {{if .Active}}bg-amber{{else}}bg-line{{end}}"></span>
+    <div class="min-w-0 flex-1">
+      <p class="text-sm {{if .Active}}text-fg{{else}}text-muted{{end}}">{{if .UsedBy.Valid}}Used by {{.UsedBy.String}}{{else if .IsExpired}}Expired{{else}}Active · {{expires .ExpiresAt}}{{end}}</p>
+      {{if .Active}}<code class="mt-0.5 block truncate text-xs text-muted">{{$base}}/register?token={{.Token}}</code>{{end}}
     </div>
-    {{if .Active}}<code class="mt-2 block break-all text-xs text-zinc-400">{{$base}}/register?token={{.Token}}</code>{{end}}
+    {{if .Active}}<button class="btn h-8 shrink-0 px-3" onclick="copyText(this.dataset.url, 'Invite link copied')" data-url="{{$base}}/register?token={{.Token}}">Copy</button>{{end}}
   </li>
 {{end}}
 </ul>{{end}}
